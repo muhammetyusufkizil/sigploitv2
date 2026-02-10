@@ -1,0 +1,10 @@
+{
+  "name": "Hizli Kesif",
+  "description": "Sadece port tarama ve dogrulama",
+  "protocols": ["SS7", "DIAMETER", "GTP", "SIP"],
+  "verify": true,
+  "exploit": false,
+  "report": true,
+  "max_targets": 100,
+  "timeout": 3
+}

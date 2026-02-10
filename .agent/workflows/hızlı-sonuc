@@ -1,0 +1,14 @@
+echo "========== GLOBAL TARAMA SONUCLARI ==========" && \
+echo "--- SS7 ---" && wc -l ~/sigploitv1/leaks_ss7.txt 2>/dev/null && head -20 ~/sigploitv1/leaks_ss7.txt 2>/dev/null && \
+echo "--- DIAMETER ---" && wc -l ~/sigploitv1/leaks_diameter.txt ~/sigploitv1/leaks_diameter_new.txt 2>/dev/null && head -20 ~/sigploitv1/leaks_diameter_new.txt 2>/dev/null && \
+echo "--- GTP ---" && wc -l ~/sigploitv1/leaks_gtp.txt 2>/dev/null && head -20 ~/sigploitv1/leaks_gtp.txt 2>/dev/null && \
+echo "--- SIP ---" && wc -l ~/sigploitv1/leaks_sip.txt 2>/dev/null && head -20 ~/sigploitv1/leaks_sip.txt 2>/dev/null && \
+echo "--- VERIFIED ---" && cat ~/sigploitv1/leaks_verified.txt 2>/dev/null && \
+echo "" && \
+echo "========== TURKIYE TARAMA SONUCLARI ==========" && \
+echo "--- SS7 Results ---" && wc -l ~/sigploitv1/turkey_ss7_results.txt 2>/dev/null && head -30 ~/sigploitv1/turkey_ss7_results.txt 2>/dev/null && \
+echo "--- Verified ---" && wc -l ~/sigploitv1/turkey_verified.txt 2>/dev/null && cat ~/sigploitv1/turkey_verified.txt 2>/dev/null && \
+echo "--- Vulnerabilities ---" && wc -l ~/sigploitv1/turkey_vulnerabilities.txt 2>/dev/null && cat ~/sigploitv1/turkey_vulnerabilities.txt 2>/dev/null && \
+echo "" && \
+echo "========== SCREEN DURUMLARI ==========" && \
+screen -ls

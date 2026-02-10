@@ -1,0 +1,10 @@
+{
+  "name": "Tam Denetim",
+  "description": "Tum protokoller ve saldiri turleri",
+  "protocols": ["SS7", "DIAMETER", "GTP", "SIP"],
+  "verify": true,
+  "exploit": true,
+  "report": true,
+  "max_targets": 50,
+  "timeout": 5
+}

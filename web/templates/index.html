@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SigPloit Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-card2: #1c2333;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-yellow: #d29922;
+            --accent-purple: #bc8cff;
+            --border-color: #30363d;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+        }
+        .navbar {
+            background-color: var(--bg-card) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .navbar-brand {
+            color: var(--accent-blue) !important;
+            font-weight: 700;
+            font-size: 1.4rem;
+        }
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: var(--bg-card2);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+        .stat-blue .stat-number { color: var(--accent-blue); }
+        .stat-green .stat-number { color: var(--accent-green); }
+        .stat-red .stat-number { color: var(--accent-red); }
+        .stat-yellow .stat-number { color: var(--accent-yellow); }
+        .stat-purple .stat-number { color: var(--accent-purple); }
+        .table {
+            color: var(--text-primary);
+        }
+        .table thead th {
+            background-color: var(--bg-card2);
+            border-color: var(--border-color);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        .table td {
+            border-color: var(--border-color);
+            vertical-align: middle;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+        .badge-proto {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .badge-ss7 { background-color: #da3633; }
+        .badge-diameter { background-color: #1f6feb; }
+        .badge-gtp { background-color: #238636; }
+        .badge-sip { background-color: #8957e5; }
+        .badge-vuln { background-color: var(--accent-red); }
+        .badge-safe { background-color: var(--accent-green); }
+        .badge-unknown { background-color: var(--text-secondary); }
+        #map {
+            height: 400px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .nav-tabs .nav-link {
+            color: var(--text-secondary);
+            border: none;
+        }
+        .nav-tabs .nav-link.active {
+            color: var(--accent-blue);
+            background-color: transparent;
+            border-bottom: 2px solid var(--accent-blue);
+        }
+        .nav-tabs .nav-link:hover {
+            color: var(--text-primary);
+            border-color: transparent;
+        }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .file-item:hover {
+            background-color: rgba(88, 166, 255, 0.05);
+        }
+        .file-name {
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .file-meta {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+        .protocol-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .protocol-bar .label {
+            width: 80px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .protocol-bar .bar-bg {
+            flex: 1;
+            height: 24px;
+            background-color: var(--bg-card2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 10px;
+        }
+        .protocol-bar .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .protocol-bar .count {
+            width: 60px;
+            text-align: right;
+            font-family: monospace;
+        }
+        .refresh-btn {
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: color 0.2s;
+        }
+        .refresh-btn:hover {
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand">SigPloit Dashboard</span>
+            <span class="text-secondary" id="lastUpdate"></span>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-6">
+                <div class="card stat-card stat-blue">
+                    <div class="stat-number" id="totalTargets">-</div>
+                    <div class="stat-label">Toplam Hedef</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card stat-card stat-green">
+                    <div class="stat-number" id="totalVerified">-</div>
+                    <div class="stat-label">Dogrulanan</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card stat-card stat-red">
+                    <div class="stat-number" id="totalVulns">-</div>
+                    <div class="stat-label">Zafiyet</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="card stat-card stat-purple">
+                    <div class="stat-number" id="totalFiles">-</div>
+                    <div class="stat-label">Rapor Dosyasi</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Protocol Distribution -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        Protokol Dagilimi
+                        <span class="refresh-btn" onclick="loadSummary()">&#x21bb;</span>
+                    </div>
+                    <div class="card-body" id="protocolBars">
+                        <div class="loading">Yukleniyor...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        Hedef Haritasi
+                        <span class="refresh-btn" onclick="loadMap()">&#x21bb;</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="row g-3 mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-bs-toggle="tab" href="#tabTargets">Hedefler</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#tabResults">Sonuclar</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#tabFiles">Dosyalar</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content">
+                            <!-- Targets Tab -->
+                            <div class="tab-pane fade show active" id="tabTargets">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control bg-dark text-light border-secondary" 
+                                           id="targetFilter" placeholder="IP veya protokol ile filtrele..."
+                                           onkeyup="filterTargets()">
+                                </div>
+                                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                    <table class="table table-hover table-sm" id="targetTable">
+                                        <thead>
+                                            <tr>
+                                                <th>IP</th>
+                                                <th>Port</th>
+                                                <th>Protokol</th>
+                                                <th>Organizasyon</th>
+                                                <th>Ulke</th>
+                                                <th>Kaynak</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="targetBody">
+                                            <tr><td colspan="6" class="loading">Yukleniyor...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Results Tab -->
+                            <div class="tab-pane fade" id="tabResults">
+                                <div id="resultsList" class="loading">Yukleniyor...</div>
+                            </div>
+
+                            <!-- Files Tab -->
+                            <div class="tab-pane fade" id="tabFiles">
+                                <div class="file-list" id="fileList">
+                                    <div class="loading">Yukleniyor...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map = null;
+        let allTargets = [];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([39, 35], 3);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CartoDB',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        // Load summary
+        function loadSummary() {
+            fetch('/api/summary')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('totalTargets').textContent = data.total_targets;
+                    document.getElementById('totalVerified').textContent = data.total_verified;
+                    document.getElementById('totalVulns').textContent = data.total_vulnerabilities;
+                    document.getElementById('totalFiles').textContent = data.files.length;
+                    document.getElementById('lastUpdate').textContent = 'Son guncelleme: ' + new Date().toLocaleTimeString('tr');
+
+                    // Protocol bars
+                    const maxCount = Math.max(...Object.values(data.protocols), 1);
+                    const colors = { SS7: '#da3633', Diameter: '#1f6feb', GTP: '#238636', SIP: '#8957e5' };
+                    let barsHtml = '';
+                    for (const [proto, count] of Object.entries(data.protocols)) {
+                        const pct = (count / maxCount * 100).toFixed(0);
+                        barsHtml += `
+                            <div class="protocol-bar">
+                                <div class="label">${proto}</div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill" style="width: ${pct}%; background-color: ${colors[proto] || '#666'}"></div>
+                                </div>
+                                <div class="count">${count}</div>
+                            </div>`;
+                    }
+                    document.getElementById('protocolBars').innerHTML = barsHtml || '<div class="loading">Veri yok</div>';
+
+                    // Files
+                    let filesHtml = '';
+                    for (const f of data.files.slice(0, 30)) {
+                        const sizeStr = f.size > 1024 ? (f.size / 1024).toFixed(1) + ' KB' : f.size + ' B';
+                        filesHtml += `
+                            <div class="file-item">
+                                <div>
+                                    <div class="file-name"><a href="/download/${f.name}" class="text-info text-decoration-none">${f.name}</a></div>
+                                    <div class="file-meta">${f.modified} | ${sizeStr}</div>
+                                </div>
+                            </div>`;
+                    }
+                    document.getElementById('fileList').innerHTML = filesHtml || '<div class="loading">Dosya yok</div>';
+                })
+                .catch(() => {});
+        }
+
+        // Load targets
+        function loadTargets() {
+            fetch('/api/targets')
+                .then(r => r.json())
+                .then(data => {
+                    allTargets = data.targets;
+                    renderTargets(allTargets);
+                })
+                .catch(() => {});
+        }
+
+        function renderTargets(targets) {
+            const protoColors = { SS7: 'badge-ss7', Diameter: 'badge-diameter', GTP: 'badge-gtp', SIP: 'badge-sip' };
+            let html = '';
+            for (const t of targets.slice(0, 200)) {
+                const badgeClass = protoColors[t.protocol] || 'badge-unknown';
+                html += `<tr>
+                    <td><code>${t.ip}</code></td>
+                    <td>${t.port}</td>
+                    <td><span class="badge badge-proto ${badgeClass}">${t.protocol}</span></td>
+                    <td>${t.org || '-'}</td>
+                    <td>${t.country || '-'}</td>
+                    <td class="text-secondary" style="font-size:0.8rem">${t.source}</td>
+                </tr>`;
+            }
+            if (targets.length > 200) {
+                html += `<tr><td colspan="6" class="text-center text-secondary">... ve ${targets.length - 200} daha</td></tr>`;
+            }
+            document.getElementById('targetBody').innerHTML = html || '<tr><td colspan="6" class="loading">Hedef bulunamadi</td></tr>';
+        }
+
+        function filterTargets() {
+            const q = document.getElementById('targetFilter').value.toLowerCase();
+            if (!q) {
+                renderTargets(allTargets);
+                return;
+            }
+            const filtered = allTargets.filter(t =>
+                t.ip.includes(q) || t.protocol.toLowerCase().includes(q) ||
+                (t.org && t.org.toLowerCase().includes(q)) ||
+                (t.country && t.country.toLowerCase().includes(q))
+            );
+            renderTargets(filtered);
+        }
+
+        // Load results
+        function loadResults() {
+            fetch('/api/results')
+                .then(r => r.json())
+                .then(data => {
+                    let html = '';
+                    if (data.results.length === 0) {
+                        html = '<div class="text-secondary">Henuz sonuc yok. Saldiri calistirin.</div>';
+                    } else {
+                        for (const r of data.results) {
+                            const isVuln = r.line.toUpperCase().includes('VULNERABLE') || r.line.toUpperCase().includes('ZAFIYET');
+                            const badge = isVuln ? '<span class="badge badge-vuln">ZAFIYET</span>' : '';
+                            html += `<div class="p-2 mb-2" style="border-left: 3px solid ${isVuln ? 'var(--accent-red)' : 'var(--border-color)'}; background: var(--bg-card2); border-radius: 4px;">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-secondary">${r.source}</small>
+                                    ${badge}
+                                </div>
+                                <pre class="mb-0 mt-1" style="color: var(--text-primary); font-size: 0.85rem; white-space: pre-wrap;">${r.line.substring(0, 300)}</pre>
+                            </div>`;
+                        }
+                    }
+                    document.getElementById('resultsList').innerHTML = html;
+                })
+                .catch(() => {});
+        }
+
+        // Load map
+        function loadMap() {
+            fetch('/api/map-data')
+                .then(r => r.json())
+                .then(data => {
+                    if (!map) return;
+                    // Clear existing markers
+                    map.eachLayer(l => { if (l instanceof L.CircleMarker) map.removeLayer(l); });
+
+                    for (const loc of data.locations) {
+                        L.circleMarker([loc.lat, loc.lon], {
+                            radius: 6,
+                            fillColor: '#f85149',
+                            color: '#f85149',
+                            weight: 1,
+                            opacity: 0.8,
+                            fillOpacity: 0.6,
+                        }).addTo(map).bindPopup(
+                            `<b>${loc.ip}</b><br>${loc.city}, ${loc.country}<br>${loc.isp}<br>${loc.org}`
+                        );
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadSummary();
+            loadTargets();
+            loadResults();
+            loadMap();
+
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                loadSummary();
+                loadResults();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

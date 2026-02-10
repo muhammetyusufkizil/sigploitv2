@@ -1,0 +1,120 @@
+git pull origin main --rebase
+git push origin main
+
+
+# Çalışan screen'leri listele
+screen -ls
+
+# Mevcut screen'e bağlan
+screen -r menu7        # dünya taraması
+screen -r diamtest     # diameter testi
+
+# Yeni screen oluştur
+screen -S isim
+
+# Screen içindeyken çık (arka planda kalsın)
+Ctrl+A, sonra D
+
+# Screen'i tamamen kapat (içindeyken)
+exit
+
+kurulum 
+
+# Ana dizin oluştur
+mkdir -p ~/bugbounty && cd ~/bugbounty
+
+# 1. SQLMap (SQL Injection)
+sudo apt install sqlmap -y
+
+# 2. Nuclei (Otomatik tarama)
+sudo apt install -y unzip
+wget https://github.com/projectdiscovery/nuclei/releases/download/v3.1.0/nuclei_3.1.0_linux_amd64.zip
+unzip nuclei_3.1.0_linux_amd64.zip
+sudo mv nuclei /usr/local/bin/
+nuclei -update-templates
+
+# 3. Subfinder (Subdomain keşfi)
+wget https://github.com/projectdiscovery/subfinder/releases/download/v2.6.3/subfinder_2.6.3_linux_amd64.zip
+unzip subfinder_2.6.3_linux_amd64.zip
+sudo mv subfinder /usr/local/bin/
+
+# 4. Httpx (HTTP probe)
+wget https://github.com/projectdiscovery/httpx/releases/download/v1.3.7/httpx_1.3.7_linux_amd64.zip
+unzip httpx_1.3.7_linux_amd64.zip
+sudo mv httpx /usr/local/bin/
+
+# 5. FFUF (Fuzzing)
+sudo apt install ffuf -y
+
+# Temizlik
+rm *.zip
+
+echo "[+] Kurulum tamamlandı!"
+
+
+
+
+# Hedef domain belirle
+TARGET="adiyaman.bel.tr"
+
+# 1. Subdomain bul
+subfinder -d $TARGET -o subs.txt
+
+# 2. Aktif olanları kontrol et
+cat subs.txt | httpx -o alive.txt
+
+# 3. IP'leri çıkar ve port tara
+cat alive.txt | sed 's|https://||' | sed 's|http://||' | while read domain; do
+    echo "=== $domain ===" >> ips.txt
+    dig +short $domain >> ips.txt
+done
+sort -u ips.txt | grep -E "^[0-9]" > unique_ips.txt
+
+# 4. Nmap ile tam port tarama
+sudo nmap -sS -p 1-10000 --min-rate 3000 -iL unique_ips.txt -oN nmap_full.txt
+
+# 5. Web scanner ile detaylı analiz (port + banner + headers)
+python3 ~/bugbounty/web_scanner.py $TARGET
+
+# 6. Her subdomain için web scanner
+for sub in $(cat alive.txt | head -20); do
+    domain=$(echo $sub | sed 's|https://||' | sed 's|http://||')
+    python3 ~/bugbounty/web_scanner.py $domain
+done 2>&1 | tee subdomain_scan.txt
+
+# 7. Nuclei ile zafiyet tara
+nuclei -l alive.txt -o vulns.txt -severity critical,high,medium
+
+# 8. SIP/VoIP tarama (varsa)
+# sipvicious kullan
+svmap $(cat unique_ips.txt | head -5)
+
+# 9. Sonuçları özetle
+echo "=== ÖZET ===" | tee summary.txt
+echo "Subdomain sayısı: $(wc -l < subs.txt)" | tee -a summary.txt
+echo "Aktif sayısı: $(wc -l < alive.txt)" | tee -a summary.txt
+echo "Unique IP: $(wc -l < unique_ips.txt)" | tee -a summary.txt
+echo "Açık portlar:" | tee -a summary.txt
+grep "open" nmap_full.txt | tee -a summary.txt
+
+
+
+# Diameter bulguları (467 IP)
+echo "=== DIAMETER (467 IP) ===" 
+cat ~/sigploit/leaks_diameter.txt | cut -d: -f1 | sort -u | head -5000
+
+# Unique IP sayısı
+echo ""
+echo "=== UNIQUE IP COUNT ===" 
+cat ~/sigploit/leaks_diameter.txt | cut -d: -f1 | sort -u | wc -l
+
+# IP aralıklarına göre grupla
+echo ""
+echo "=== IP RANGES ===" 
+cat ~/sigploit/leaks_diameter.txt | cut -d: -f1 | cut -d. -f1-3 | sort | uniq -c | sort -rn | head -5000
+
+
+ssh -i "C:\Users\ASUS\Downloads\Yeni klasör (2)\02020202.pem" ubuntu@13.60.216.8
+
+icacls "C:\Users\ASUS\Downloads\Yeni klasör (2)\02020202.pem" /inheritance:r
+icacls "C:\Users\ASUS\Downloads\Yeni klasör (2)\02020202.pem" /grant:r ASUS:(R)

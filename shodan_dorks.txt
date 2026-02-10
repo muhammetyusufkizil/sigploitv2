@@ -1,0 +1,54 @@
+
+# SHODAN DORKS FOR SS7 / SIGTRAN (TURKEY)
+
+Finding an open SS7 gateway by random scanning is extremely difficult because they are rare and firewalled. 
+Use these search queries on https://www.shodan.io/ to find devices that are ALREADY indexed.
+
+---
+
+### 1. Direct Port Search (SS7 / M3UA)
+Find devices in Turkey with the specific SS7 over IP port open.
+```text
+port:2905 country:"TR"
+port:2905 country:"TR" "SCTP"
+port:2905 country:"TR" "M3UA"
+```
+
+### 2. SCTP Protocol (Transport Layer for SS7)
+SS7 uses SCTP instead of TCP. Many scanners miss this.
+```text
+transport:"sctp" country:"TR"
+proto:"sctp" country:"TR"
+```
+
+### 3. Related Telecom Ports
+Often, if 2905 is hidden, other management ports might be open nearby.
+```text
+port:2905,2906,2907,2908 country:"TR"
+port:138 (GTP-C) country:"TR"
+port:2123 (GTP-C) country:"TR"
+```
+
+### 4. Organization Specific
+Targeting specific ISPs.
+```text
+org:"Turk Telekom" port:2905
+org:"Superonline" port:2905
+org:"Vodafone" port:2905
+org:"Turkcell" port:2905
+```
+
+### 5. Dialogic / Sigtran Banners
+Searching for specific software signatures often used in SS7 gateways.
+```text
+"Dialogic" country:"TR"
+"Sigtran" country:"TR"
+"M3UA" country:"TR"
+```
+
+---
+
+### How to use?
+1. Copy a dork above.
+2. Paste it into Shodan.io search bar.
+3. If you find an IP, add it to your `config.txt` and try the attack again.
