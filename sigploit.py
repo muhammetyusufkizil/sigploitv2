@@ -169,6 +169,7 @@ def mainMenu():
     print("13) FW Bypass".rjust(15) + "\t\tSS7 Firewall bypass teknikleri")
     print("14) Telefon Kesif".rjust(19) + "\tBaz istasyonu tarama (USB telefon)")
     print("15) Web Tarayici".rjust(18) + "\tWeb sitesi guvenlik tarama")
+    print("16) Spoofing Guard".rjust(19) + "\tSIP/SS7 spoofing tespit analizi")
 
     print()
     print("Cikmak icin quit yazin\n".rjust(28))
@@ -212,11 +213,15 @@ def mainMenu():
         mainMenu()
     elif choice == "5":
         try:
-            import turkey.scanner
-            turkey.scanner.main()
+            from turkey import scanner as turkey_scanner
+            turkey_scanner.main()
         except ImportError as e:
             print(f"[-] Error importing Turkey module: {e}")
+            print("[!] Lutfen turkey/scanner.py ve bagimliliklari kontrol edin.")
             time.sleep(2)
+        except KeyboardInterrupt:
+            print("\n[!] Turkey tarayici kullanici tarafindan durduruldu.")
+            time.sleep(1)
         except Exception as e:
              print(f"[-] Error: {e}")
              time.sleep(2)
@@ -348,12 +353,36 @@ def mainMenu():
             print(f"[-] Hata: {e}")
             time.sleep(2)
         mainMenu()
+    elif choice == "16":
+        os.system('cls' if os.name == 'nt' else 'clear')
+        try:
+            import spoofing_guard
+            spoofing_guard.run_guard_menu()
+        except ImportError as e:
+            print(f"[-] Spoofing guard modulu hatasi: {e}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"[-] Hata: {e}")
+            time.sleep(2)
+        mainMenu()
+    elif choice == "17":
+        os.system('cls' if os.name == 'nt' else 'clear')
+        try:
+            import system_check
+            system_check.run_system_check()
+        except ImportError as e:
+            print(f"[-] Sistem kontrol modulu hatasi: {e}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"[-] Hata: {e}")
+            time.sleep(2)
+        mainMenu()
     elif choice == "quit" or choice == "exit" or choice == "cikis":
         print('\nSigPloit kapatiliyor...')
         time.sleep(1)
         sys.exit(0)
     else:
-        print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 15)')
+        print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 17)')
         time.sleep(2)
         mainMenu()
 

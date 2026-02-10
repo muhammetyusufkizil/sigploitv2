@@ -59,6 +59,13 @@ TELECOM_QUERIES = {
     },
 }
 
+SPOOFING_RISK_QUERIES = [
+    "port:5060 \"P-Asserted-Identity\"",
+    "port:5060 \"From:\" \"Via:\"",
+    "port:5060 \"User-Agent\" \"SIP/2.0\"",
+    "port:5061 \"SIP/2.0\"",
+]
+
 # Country codes for targeted searches
 COUNTRY_CODES = {
     'TR': 'Turkiye',
@@ -413,6 +420,8 @@ def shodan_search_menu():
     print("  4) Ozel Shodan Sorgusu")
     print("  5) Kayitli Sonuclari Dogrula")
     print("  6) Mevcut Hedef Dosyalarini Goster")
+    print("  7) Spoofing Risk Yuzeyi (Shodan, Global/TR)")
+    print("  8) Riskli Ulke Ozeti (kayitli dosyadan)")
     print()
 
     has_shodan = bool(config.get('shodan_api_key'))
@@ -465,10 +474,20 @@ def shodan_search_menu():
     elif choice == "6":
         _show_target_files()
         shodan_search_menu()
+    elif choice == "7":
+        if not has_shodan:
+            print("[-] Shodan API anahtari gerekli!")
+            time.sleep(2)
+        else:
+            _shodan_spoofing_surface(config['shodan_api_key'])
+        shodan_search_menu()
+    elif choice == "8":
+        _show_risky_country_summary()
+        shodan_search_menu()
     elif choice == "back" or choice == "geri":
         return
     else:
-        print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-6)')
+        print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-8)')
         time.sleep(1.5)
         shodan_search_menu()
 
@@ -594,6 +613,102 @@ def _shodan_custom_query(api_key):
     input("\nDevam etmek icin Enter'a basin...")
 
 
+
+def _shodan_spoofing_surface(api_key):
+    """Defensive spoofing-risk surface search on Shodan (global or country)."""
+    print("\n[+] Spoofing risk yuzeyi taramasi")
+    print("[*] Bu adim SALDIRI degil; acik SIP yuzeyinde kimlik/konfig izlerini arar.")
+
+    country_in = get_input("Ulke kodu (TR / GLOBAL)", "TR").strip().upper()
+    country = None if country_in in ("", "GLOBAL", "ALL") else country_in
+
+    max_results = _prompt_int("Sorgu basina maks sonuc", 100, min_value=1, max_value=1000)
+
+    aggregate = []
+    for q in SPOOFING_RISK_QUERIES:
+        print(f"\n[>] Sorgu: {q}")
+        rows = search_shodan(api_key, q, country=country, max_results=max_results)
+        aggregate.extend(rows)
+        time.sleep(1)
+
+    dedup = []
+    seen = set()
+    for r in aggregate:
+        key = f"{r.get('ip','')}:{r.get('port','')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(r)
+
+    if not dedup:
+        print("[-] Sonuc bulunamadi.")
+        input("\nDevam etmek icin Enter'a basin...")
+        return
+
+    scope = (country or "global").lower()
+    out_name = f"shodan_spoofing_{scope}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    save_results({'SPOOFING_GUARD': dedup}, out_name)
+
+    print(f"\n[+] Toplam benzersiz bulgu: {len(dedup)}")
+    for r in dedup[:20]:
+        print(f"  {r['ip']}:{r['port']} | {r['org']} | {r['country']}")
+    if len(dedup) > 20:
+        print(f"  ... ve {len(dedup)-20} daha")
+
+    input("\nDevam etmek icin Enter'a basin...")
+
+
+def _show_risky_country_summary():
+    """Show count summary by country from saved shodan/censys txt files."""
+    root = os.path.dirname(os.path.dirname(__file__))
+    files = [f for f in sorted(os.listdir(root)) if (f.startswith('shodan_') or f.startswith('censys_')) and f.endswith('.txt')]
+    if not files:
+        print("[-] Ozet icin dosya bulunamadi.")
+        input("\nDevam etmek icin Enter'a basin...")
+        return
+
+    print("\nDosyalar:")
+    for i, f in enumerate(files):
+        print(f"  {i}) {f}")
+    idx = _prompt_int("Dosya numarasi", 0, min_value=0, max_value=len(files)-1)
+
+    counts = {}
+    path = os.path.join(root, files[idx])
+    with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+        for line in fh:
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) < 3:
+                continue
+            cc = parts[2].upper()
+            if len(cc) != 2:
+                continue
+            counts[cc] = counts.get(cc, 0) + 1
+
+    if not counts:
+        print("[-] Ulke bilgisi parse edilemedi.")
+        input("\nDevam etmek icin Enter'a basin...")
+        return
+
+    sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+    topn = _prompt_int("Gosterilecek ulke sayisi", 20, min_value=1, max_value=200)
+
+    print("\n[+] Ulke bazli kayit ozeti:")
+    for cc, n in sorted_counts[:topn]:
+        risk_tag = " <== ONCELIK" if cc in ("NG", "EG", "IN", "BR", "RU") else ""
+        print(f"  {cc}: {n}{risk_tag}")
+
+    save_choice = get_input("Ozeti dosyaya kaydet? (e/h)", "e").lower()
+    if save_choice in ['e', 'evet', 'y', 'yes']:
+        out_name = f"country_summary_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        with open(os.path.join(root, out_name), 'w', encoding='utf-8') as out:
+            out.write(f"Source: {files[idx]}\n")
+            out.write(f"Generated: {time.ctime()}\n\n")
+            for cc, n in sorted_counts:
+                out.write(f"{cc}: {n}\n")
+        print(f"[+] Ozet kaydedildi: {os.path.join(root, out_name)}")
+
+    input("\nDevam etmek icin Enter'a basin...")
+
 def _verify_saved_results():
     """Verify previously saved search results."""
     print("\n[+] Kayitli sonuclari dogrulama")
@@ -601,7 +716,7 @@ def _verify_saved_results():
     # Find leak/target files
     files = []
     root = os.path.dirname(os.path.dirname(__file__))
-    for f in os.listdir(root):
+    for f in sorted(os.listdir(root)):
         if (f.startswith('leaks_') or f.startswith('shodan_') or f.startswith('targets_')) and f.endswith('.txt'):
             files.append(f)
 
@@ -622,7 +737,7 @@ def _verify_saved_results():
     filepath = os.path.join(root, files[idx])
     targets = []
 
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith('#'):
@@ -633,6 +748,12 @@ def _verify_saved_results():
                 try:
                     ip = parts[0].strip()
                     port = int(parts[1].strip())
+                    try:
+                        socket.inet_aton(ip)
+                    except OSError:
+                        continue
+                    if not (1 <= port <= 65535):
+                        continue
                     targets.append({'ip': ip, 'port': port})
                 except ValueError:
                     continue
@@ -642,8 +763,17 @@ def _verify_saved_results():
         input("\nDevam etmek icin Enter'a basin...")
         return
 
-    print(f"[+] {len(targets)} hedef bulundu. Dogrulama basliyor...")
-    verified = quick_verify_results(targets, "MIXED", max_verify=min(50, len(targets)))
+    unique = []
+    seen = set()
+    for t in targets:
+        key = f"{t['ip']}:{t['port']}"
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(t)
+
+    print(f"[+] {len(unique)} benzersiz hedef bulundu. Dogrulama basliyor...")
+    verified = quick_verify_results(unique, "MIXED", max_verify=min(50, len(unique)))
 
     if verified:
         fname = f"verified_{files[idx]}"

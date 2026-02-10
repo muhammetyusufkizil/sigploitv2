@@ -194,6 +194,9 @@ TR_SUBNETS = {
         "185.2.0.0/16",
         "5.44.80.0/20",       # TurkNet core
     ],
+    "Turksat KabloNet": [
+        "176.236.0.0/14",     # KabloNet ulusal havuz
+    ],
     # =============================================
     # DİĞER OPERATÖRLER
     # =============================================
@@ -215,9 +218,11 @@ SIGTRAN_PORTS = {
 
 TIMEOUT = 1.0
 THREADS = 100
+TEST_SOCKET_TIMEOUT = 3
 OUTPUT_FILE = "turkey_ss7_results.txt"
 VERIFIED_FILE = "turkey_verified.txt"
 VULN_FILE = "turkey_vulnerabilities.txt"
+
 
 
 def banner():
@@ -281,6 +286,168 @@ def _prompt_msisdn(prompt, default):
         if msisdn.isdigit() and len(msisdn) >= 10:
             return msisdn
         print("[-] MSISDN sayisal olmali ve en az 10 hane olmali.")
+
+
+
+def _normalize_tr_subnets(subnets_map):
+    """Geçersiz/tekrarlı subnet kayıtlarını temizle."""
+    normalized = {}
+    for operator, cidrs in subnets_map.items():
+        seen = set()
+        valid = []
+        for cidr in cidrs:
+            try:
+                net = str(ipaddress.ip_network(cidr, strict=False))
+            except ValueError:
+                continue
+            if net in seen:
+                continue
+            seen.add(net)
+            valid.append(net)
+        if valid:
+            normalized[operator] = valid
+    return normalized
+
+
+
+def _load_extra_subnets(json_path="turkey/operators_extra.json"):
+    """Opsiyonel ek operator subnetlerini JSON dosyasindan yukle."""
+    if not os.path.exists(json_path):
+        return {}, None
+
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as e:
+        return {}, f"Ek subnet dosyasi okunamadi: {e}"
+
+    if not isinstance(data, dict):
+        return {}, "Ek subnet JSON formati hatali (dict bekleniyor)."
+
+    return data, None
+
+def _show_result_file(path, max_lines=200):
+    """Dosya içeriğini güvenli şekilde önizle (çok büyük dosyada taşma önler)."""
+    if not os.path.exists(path):
+        print(f"\n[-] Dosya bulunamadi: {path}")
+        return
+
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+    except OSError as e:
+        print(f"\n[-] Dosya okuma hatasi ({path}): {e}")
+        return
+
+    total = len(lines)
+    print(f"\n[*] {path} | satir: {total}")
+    if total <= max_lines:
+        print(''.join(lines))
+        return
+
+    head_n = max_lines // 2
+    tail_n = max_lines - head_n
+    print(f"[*] Dosya buyuk oldugu icin ilk {head_n} ve son {tail_n} satir gosteriliyor.\n")
+    print(''.join(lines[:head_n]))
+    print("\n... (atlanan satirlar) ...\n")
+    print(''.join(lines[-tail_n:]))
+
+def _runtime_tuning_menu():
+    """Timeout/thread ayarlari ile takilma sorunlarini azalt."""
+    global TIMEOUT, THREADS, TEST_SOCKET_TIMEOUT
+    print("\n[*] Mevcut ayarlar:")
+    print(f"    Tarama timeout: {TIMEOUT}s")
+    print(f"    Test timeout:   {TEST_SOCKET_TIMEOUT}s")
+    print(f"    Thread sayisi:  {THREADS}")
+
+    if not _prompt_yes_no("[?] Ayalari guncellemek istiyor musunuz? (e/h)", "h"):
+        return
+
+    TIMEOUT = float(_prompt_int("Tarama timeout (sn)", int(max(1, round(TIMEOUT))), min_value=1, max_value=30))
+    TEST_SOCKET_TIMEOUT = _prompt_int("Dogrulama/Zafiyet timeout (sn)", TEST_SOCKET_TIMEOUT, min_value=1, max_value=30)
+    THREADS = _prompt_int("Thread sayisi", THREADS, min_value=10, max_value=400)
+    print(f"[+] Guncellendi -> tarama={TIMEOUT}s | test={TEST_SOCKET_TIMEOUT}s | thread={THREADS}")
+    input("\nDevam etmek icin Enter'a basin...")
+
+
+def _security_test_menu():
+    """Yetkili test operasyonlari: takip, firewall test, firewall bypass menuleri."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("\n" + "=" * 60)
+        print(" Guvenlik Test Merkezi (Yetkili Ortam)")
+        print("=" * 60)
+        print("  1) Hedef Takip (+90 numara)")
+        print("  2) SS7 Firewall Test menusu")
+        print("  3) SS7 Firewall Bypass menusu")
+        print("  4) Runtime timeout/thread ayarlari")
+        print("  99) Geri")
+
+        choice = get_input("\nsecim", "99").strip().lower()
+        if choice == '1':
+            tracking_menu()
+        elif choice == '2':
+            try:
+                from ss7 import firewall_test
+                firewall_test.firewall_test_menu()
+            except Exception as e:
+                print(f"[-] Firewall test modulu acilamadi: {e}")
+                input("\nDevam etmek icin Enter'a basin...")
+        elif choice == '3':
+            try:
+                from ss7 import firewall_bypass
+                firewall_bypass.bypass_menu()
+            except Exception as e:
+                print(f"[-] Firewall bypass modulu acilamadi: {e}")
+                input("\nDevam etmek icin Enter'a basin...")
+        elif choice == '4':
+            _runtime_tuning_menu()
+        elif choice == '99':
+            return
+        else:
+            print("\033[31m[-] Gecersiz secim\033[0m")
+            time.sleep(1)
+
+
+def _analysis_hub_menu(context_label="Tarama"):
+    """Sonuc inceleme ve aksiyonlar icin profesyonel analiz menusu."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("\n" + "=" * 60)
+        print(f" {context_label} Sonrasi Analiz Merkezi")
+        print("=" * 60)
+        print("  1) Sonuc dosyalarini onizle")
+        print("  2) Hizli dogrulama baslat (M3UA probe)")
+        print("  3) Tam zafiyet testi baslat")
+        print("  4) Otomatik zincir: Dogrulama -> Zafiyet")
+        print("  5) Runtime timeout/thread ayarlari")
+        print("  6) Guvenlik Test Merkezi (FW test/bypass)")
+        print("  99) Geri")
+
+        choice = get_input("\nsecim", "99").strip().lower()
+
+        if choice == '1':
+            _show_result_file(OUTPUT_FILE)
+            _show_result_file(VERIFIED_FILE)
+            _show_result_file(VULN_FILE)
+            input("\nDevam etmek icin Enter'a basin...")
+        elif choice == '2':
+            verify_results()
+        elif choice == '3':
+            vulnerability_test()
+        elif choice == '4':
+            verify_results()
+            if _prompt_yes_no("[?] Dogrulama bitti. Tam zafiyet testi de baslasin mi? (e/h)", "e"):
+                vulnerability_test()
+        elif choice == '5':
+            _runtime_tuning_menu()
+        elif choice == '6':
+            _security_test_menu()
+        elif choice == '99':
+            return
+        else:
+            print("\033[31m[-] Gecersiz secim\033[0m")
+            time.sleep(1)
 
 
 def verify_sctp_port(ip, port, timeout=1.0):
@@ -427,7 +594,14 @@ def scan_tr_gateways(selected_isps=None, scan_ports=None, ips_per_subnet=0):
         f.write(f"\n{'=' * 60}\nToplam: {total_found} aday\n")
         f.write(f"Tamamlandi: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-    input("\nDevam etmek icin Enter'a basin...")
+    if total_found > 0:
+        print("\n[+] Aday hedef bulundu. Analiz Merkezine gecerek dogrulama/zafiyet testine devam edebilirsiniz.")
+        if _prompt_yes_no("[?] Simdi Analiz Merkezi acilsin mi? (e/h)", "e"):
+            _analysis_hub_menu("Derin/Tam Tarama")
+        else:
+            input("\nDevam etmek icin Enter'a basin...")
+    else:
+        input("\nDevam etmek icin Enter'a basin...")
     return all_findings
 
 
@@ -572,6 +746,9 @@ def verify_results():
     test_list = multi_port + m3ua_only + other
     total_to_test = len(test_list)
 
+    verify_timeout = max(TIMEOUT, float(TEST_SOCKET_TIMEOUT))
+    probe_timeout = max(2, TEST_SOCKET_TIMEOUT)
+
     print(f"\n[*] {total_to_test} IP test ediliyor (dogrulama + aninda zafiyet testi)...")
     print("[*] Acik bulunan portlara aninda M3UA/ASP testi uygulanacak")
     print("[*] Durdurmak icin Ctrl+C\n")
@@ -600,8 +777,8 @@ def verify_results():
 
             for p_info in ports:
                 port = p_info['port']
-                tcp_open_state, _, tcp_details = verify_sctp_port(ip, port, TIMEOUT)
-                is_m3ua, m3ua_details, elapsed = m3ua_probe(ip, port)
+                tcp_open_state, _, tcp_details = verify_sctp_port(ip, port, verify_timeout)
+                is_m3ua, m3ua_details, elapsed = m3ua_probe(ip, port, timeout=probe_timeout)
                 is_open = tcp_open_state or is_m3ua
                 details = m3ua_details if is_m3ua else (tcp_details or m3ua_details)
 
@@ -701,7 +878,7 @@ def _quick_vuln_test(ip, port, findings_list):
     sock = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
+        sock.settimeout(TEST_SOCKET_TIMEOUT)
         sock.connect((ip, port))
 
         # ASP Up
@@ -898,7 +1075,7 @@ def vulnerability_test():
             sock = None
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
+                sock.settimeout(TEST_SOCKET_TIMEOUT)
                 sock.connect((ip, port))
 
                 # ASP Up
@@ -938,7 +1115,7 @@ def vulnerability_test():
             sock = None
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
+                sock.settimeout(TEST_SOCKET_TIMEOUT)
                 sock.connect((ip, port))
 
                 # Çeşitli problar gönder
@@ -990,7 +1167,7 @@ def vulnerability_test():
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
+                sock.settimeout(TEST_SOCKET_TIMEOUT)
                 sock.connect((ip, port))
                 ssock = context.wrap_socket(sock, server_hostname=ip)
                 cert = ssock.getpeercert(binary_form=True)
@@ -1020,7 +1197,7 @@ def vulnerability_test():
                 sock = None
                 try:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(3)
+                    sock.settimeout(TEST_SOCKET_TIMEOUT)
                     start = time.time()
                     sock.connect((ip, port))
                     elapsed = (time.time() - start) * 1000
@@ -1524,9 +1701,20 @@ def _parse_tcap_response(data):
 
 def main():
     """Türkiye tarayıcı ana menü."""
+    global TR_SUBNETS
+    base_subnets = _normalize_tr_subnets(TR_SUBNETS)
+    extra_subnets, extra_err = _load_extra_subnets()
+    merged = dict(base_subnets)
+    for name, cidrs in _normalize_tr_subnets(extra_subnets).items():
+        merged[name] = sorted(set(merged.get(name, []) + cidrs))
+    TR_SUBNETS = merged
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
         banner()
+        if extra_err:
+            print(f"\033[33m[!] {extra_err}\033[0m")
+        elif extra_subnets:
+            print(f"\033[32m[+] Ek operator dosyasi yuklendi: {len(extra_subnets)} operator\033[0m")
 
         isp_list = list(TR_SUBNETS.keys())
         print("  Operatorler:")
@@ -1534,6 +1722,8 @@ def main():
             subnet_count = len(TR_SUBNETS[isp])
             print(f"    {i}) {isp} ({subnet_count} subnet)")
 
+        total_subnets = sum(len(v) for v in TR_SUBNETS.values())
+        print(f"\n  [*] Toplam operator: {len(isp_list)} | Toplam subnet: {total_subnets}")
         print()
         print("  +-------------------------------------------+")
         print("  |  TARAMA                                   |")
@@ -1543,12 +1733,12 @@ def main():
         print("  |  4) Ozel Tarama (operator sec)            |")
         print("  |                                           |")
         print("  |  ANALIZ                                   |")
-        print("  |  5) Sonuclari Goruntule                   |")
-        print("  |  6) Sonuc Dogrulama (M3UA Probu)          |")
+        print("  |  5) Analiz Merkezi (Prof. Inceleme)       |")
+        print("  |  6) Sonuc Dogrulama (M3UA + Profil)       |")
         print("  |  7) Zafiyet Testi (Guvenlik Analizi)      |")
         print("  |                                           |")
         print("  |  SALDIRI                                  |")
-        print("  |  8) Hedef Takip (+90 numara)              |")
+        print("  |  8) Guvenlik Test Merkezi                 |")
         print("  |                                           |")
         print("  |  99) Geri                                 |")
         print("  +-------------------------------------------+")
@@ -1574,39 +1764,38 @@ def main():
                 print(f"  {i}) {isp}")
             sel = get_input("\nSecim", "")
             selected = []
-            try:
-                for idx_s in sel.split(","):
-                    idx_i = int(idx_s.strip())
-                    if 0 <= idx_i < len(isp_list):
-                        selected.append(isp_list[idx_i])
-            except ValueError:
-                print("[-] Gecersiz secim")
+            invalid_tokens = []
+            for idx_s in sel.split(","):
+                token = idx_s.strip()
+                if not token:
+                    continue
+                try:
+                    idx_i = int(token)
+                except ValueError:
+                    invalid_tokens.append(token)
+                    continue
+                if 0 <= idx_i < len(isp_list):
+                    selected.append(isp_list[idx_i])
+                else:
+                    invalid_tokens.append(token)
+
+            # Sirayi koru + tekrar sil
+            selected = list(dict.fromkeys(selected))
+            if invalid_tokens:
+                print(f"[!] Gecersiz operator indexleri atlandi: {', '.join(invalid_tokens)}")
                 time.sleep(1)
-                continue
             if not selected:
-                print("[-] Operator secilmedi")
+                print("[-] Gecerli operator secilmedi")
                 time.sleep(1)
                 continue
             ips_input = _prompt_int("Subnet basina IP (0=tumu)", 1000, min_value=0, max_value=65534)
             scan_tr_gateways(selected_isps=selected, ips_per_subnet=ips_input)
         elif choice == "5":
-            if os.path.exists(OUTPUT_FILE):
-                print(f"\n[*] {OUTPUT_FILE} icerigi:\n")
-                with open(OUTPUT_FILE, "r", encoding='utf-8', errors='replace') as f:
-                    print(f.read())
-            else:
-                print("\n[-] Sonuc dosyasi bulunamadi.")
-            if os.path.exists(VERIFIED_FILE):
-                print(f"\n[*] {VERIFIED_FILE} icerigi:\n")
-                with open(VERIFIED_FILE, "r", encoding='utf-8', errors='replace') as f:
-                    print(f.read())
-            if os.path.exists(VULN_FILE):
-                print(f"\n[*] {VULN_FILE} icerigi:\n")
-                with open(VULN_FILE, "r", encoding='utf-8', errors='replace') as f:
-                    print(f.read())
-            input("\nDevam etmek icin Enter'a basin...")
+            _analysis_hub_menu("Turkiye Tarayici")
         elif choice == "6":
             try:
+                if _prompt_yes_no("[?] Once timeout/thread ayari yapmak ister misiniz? (e/h)", "h"):
+                    _runtime_tuning_menu()
                 verify_results()
             except Exception as e:
                 print(f"\033[31m[-] Dogrulama hatasi: {e}\033[0m")
@@ -1615,6 +1804,8 @@ def main():
                 input("\nDevam etmek icin Enter'a basin...")
         elif choice == "7":
             try:
+                if _prompt_yes_no("[?] Once timeout/thread ayari yapmak ister misiniz? (e/h)", "h"):
+                    _runtime_tuning_menu()
                 vulnerability_test()
             except Exception as e:
                 print(f"\033[31m[-] Zafiyet testi hatasi: {e}\033[0m")
@@ -1622,7 +1813,7 @@ def main():
                 traceback.print_exc()
                 input("\nDevam etmek icin Enter'a basin...")
         elif choice == "8":
-            tracking_menu()
+            _security_test_menu()
         elif choice == "99":
             break
         else:

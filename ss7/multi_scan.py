@@ -17,6 +17,9 @@ from scapy.all import IP, TCP, UDP, SCTP, SCTPChunkInit, SCTPChunkInitAck, SCTPC
 
 conf.verb = 0
 
+RISK_PRIORITY_COUNTRIES = ["NG", "EG", "IN", "BR", "RU"]
+PORT_TO_PROTO = {2904: "SS7", 2905: "SS7", 2906: "SS7", 2907: "SS7", 2908: "SS7", 3868: "DIAMETER", 3869: "DIAMETER", 2123: "GTP", 2152: "GTP", 5060: "SIP", 5061: "SIP"}
+
 # ============================================
 # PROTOCOL VERIFICATION FUNCTIONS
 # ============================================
@@ -331,6 +334,8 @@ def multi_scan_menu():
     print("4) GTP Only (Mobile Data)")
     print("5) SIP Only (VoIP)")
     print("6) Verify Existing Results (from leaks_*.txt)")
+    print("7) Limited Scan (N subnet, controlled run)")
+    print("8) Risk-Temelli Ulke Analizi (dosyadan)")
     print()
     print("or type back to return")
     print()
@@ -349,10 +354,14 @@ def multi_scan_menu():
         run_multi_scan(['SIP'])
     elif choice == "6":
         verify_existing_results()
+    elif choice == "7":
+        run_limited_scan_menu()
+    elif choice == "8":
+        run_risk_based_country_menu()
     elif choice == "back":
         return
     else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (1-6)')
+        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (1-8)')
         time.sleep(1.5)
         multi_scan_menu()
 
@@ -483,7 +492,141 @@ def verify_existing_results():
     multi_scan_menu()
 
 
-def run_multi_scan(protocols):
+
+def _prompt_int(prompt, default, min_value=None, max_value=None):
+    while True:
+        raw = input(f"{prompt} [{default}]: ").strip()
+        if not raw:
+            return default
+        try:
+            val = int(raw)
+        except ValueError:
+            print("[-] Lutfen sayisal deger girin.")
+            continue
+        if min_value is not None and val < min_value:
+            print(f"[-] En az {min_value} olmalidir.")
+            continue
+        if max_value is not None and val > max_value:
+            print(f"[-] En fazla {max_value} olmalidir.")
+            continue
+        return val
+
+
+def run_limited_scan_menu():
+    """Run controlled global scan with subnet cap."""
+    print("\n[+] Limited scan modu")
+    print("1) All Protocols")
+    print("2) SS7")
+    print("3) Diameter")
+    print("4) GTP")
+    print("5) SIP")
+
+    mode = input("Secim [1]: ").strip() or "1"
+    proto_map = {
+        "1": ['SS7', 'DIAMETER', 'GTP', 'SIP'],
+        "2": ['SS7'],
+        "3": ['DIAMETER'],
+        "4": ['GTP'],
+        "5": ['SIP'],
+    }
+    protocols = proto_map.get(mode)
+    if not protocols:
+        print("[-] Gecersiz secim")
+        time.sleep(1)
+        return
+
+    subnet_limit = _prompt_int("Taranacak subnet sayisi", 20, min_value=1, max_value=10000)
+    run_multi_scan(protocols, max_subnets=subnet_limit)
+
+
+def _parse_country_targets(file_path):
+    """Parse lines like: IP:port | org | country | isp"""
+    import re
+    targets = []
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('-'):
+                continue
+            m = re.search(r'(\d+\.\d+\.\d+\.\d+):(\d+)', line)
+            if not m:
+                continue
+            ip = m.group(1)
+            port = int(m.group(2))
+            if port not in PORT_TO_PROTO:
+                continue
+            parts = [p.strip() for p in line.split('|')]
+            country = parts[2].upper() if len(parts) >= 3 else 'N/A'
+            targets.append({'ip': ip, 'port': port, 'country': country, 'raw': line})
+    return targets
+
+
+def run_risk_based_country_menu():
+    """Defensive: prioritize verification for selected country groups from saved files."""
+    print("\n[+] Risk-temelli ulke analizi (defensive)")
+    print("[*] Kayitli shodan/censys txt dosyalarindan hedefleri okuyup protokol dogrulama yapar.")
+    print(f"[*] Varsayilan oncelik ulkeleri: {', '.join(RISK_PRIORITY_COUNTRIES)}")
+
+    root = os.getcwd()
+    files = [f for f in sorted(os.listdir(root)) if (f.startswith('shodan_') or f.startswith('censys_')) and f.endswith('.txt')]
+    if not files:
+        print("[-] Analiz icin shodan_/censys_ dosyasi bulunamadi.")
+        input("\nPress Enter to return...")
+        return
+
+    for i, f in enumerate(files):
+        print(f"  {i}) {f}")
+    idx = _prompt_int("Dosya numarasi", 0, min_value=0, max_value=len(files)-1)
+    file_path = os.path.join(root, files[idx])
+
+    targets = _parse_country_targets(file_path)
+    if not targets:
+        print("[-] Uygun IP:port hedefi bulunamadi.")
+        input("\nPress Enter to return...")
+        return
+
+    user_cc = input("Ulke kodlari (virgullu) [varsayilan]: ").strip().upper()
+    priority = RISK_PRIORITY_COUNTRIES if not user_cc else [x.strip() for x in user_cc.split(',') if x.strip()]
+    filtered = [t for t in targets if t['country'] in priority]
+    if not filtered:
+        print("[-] Secilen ulkeler icin hedef bulunamadi.")
+        input("\nPress Enter to return...")
+        return
+
+    limit = _prompt_int("Maks hedef", 200, min_value=1, max_value=5000)
+    filtered = filtered[:limit]
+
+    verify_map = {
+        'SS7': lambda ip, port: verify_ss7_m3ua(ip, port),
+        'DIAMETER': lambda ip, port: verify_diameter(ip, port),
+        'GTP': lambda ip, port: verify_gtp(ip, port),
+        'SIP': lambda ip, port: verify_sip(ip, port),
+    }
+
+    out_name = f"risk_assessment_{time.strftime('%Y%m%d_%H%M%S')}.txt"
+    verified = 0
+    checked = 0
+    with open(out_name, 'w', encoding='utf-8') as out:
+        out.write(f"Risk Assessment Report\nSource: {files[idx]}\nCountries: {','.join(priority)}\n\n")
+        for t in filtered:
+            checked += 1
+            proto = PORT_TO_PROTO.get(t['port'])
+            vf = verify_map.get(proto)
+            if not vf:
+                continue
+            ok, details = vf(t['ip'], t['port'])
+            if ok:
+                verified += 1
+                out.write(f"[EXPOSED] {t['ip']}:{t['port']} | {proto} | {t['country']} | {details}\n")
+                print(f"  [EXPOSED] {t['ip']}:{t['port']} {proto} {t['country']} | {details}")
+            elif checked % 25 == 0:
+                print(f"  [{checked}/{len(filtered)}] kontrol ediliyor...")
+
+    print(f"\n[+] Kontrol: {checked} | Dogrulanan maruziyet: {verified}")
+    print(f"[+] Rapor: {os.path.abspath(out_name)}")
+    input("\nPress Enter to return...")
+
+def run_multi_scan(protocols, max_subnets=None):
     """Run scanning with protocol-level verification."""
     
     PROTOCOL_PORTS = {
@@ -503,7 +646,10 @@ def run_multi_scan(protocols):
         print(f"    - leaks_{proto.lower()}.txt (port scan hits)")
     print(f"    - leaks_verified.txt (protocol-verified only)")
     print()
-    print("[+] Press Ctrl+C to stop.\n")
+    if max_subnets is None:
+        print("[+] Press Ctrl+C to stop.\n")
+    else:
+        print(f"[+] Controlled run: max {max_subnets} subnet\n")
     
     # Create output files
     for proto in protocols:
@@ -618,6 +764,10 @@ def run_multi_scan(protocols):
             scan_count += 1
             if scan_count % 20 == 0:
                 print(f"\n[Status] Subnets: {scan_count} | Verified: {total_verified} | False+: {total_false}\n")
+
+            if max_subnets is not None and scan_count >= max_subnets:
+                print(f"\n[+] Controlled scan limiti tamamlandi: {scan_count}/{max_subnets}")
+                break
                 
     except KeyboardInterrupt:
         print(f"\n\n[+] Scan stopped.")
