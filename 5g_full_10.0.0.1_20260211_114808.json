@@ -1,0 +1,32 @@
+{
+  "ip": "10.0.0.1",
+  "timestamp": "2026-02-11T11:43:16.387672",
+  "open_ports": [],
+  "sbi_endpoints": [],
+  "nrf_nfs": [],
+  "pfcp": {
+    "ip": "10.0.0.1",
+    "port": 8805,
+    "heartbeat": false,
+    "association": false,
+    "response_type": 0,
+    "node_id": "",
+    "details": "Heartbeat: Yanit yok",
+    "vulnerable": false
+  },
+  "ngap": {
+    "ip": "10.0.0.1",
+    "port": 38412,
+    "accessible": false,
+    "details": "Port 38412 kapali veya SCTP-only"
+  },
+  "gtpu": {
+    "ip": "10.0.0.1",
+    "port": 2152,
+    "accessible": false,
+    "details": "GTP-U: Yanit yok"
+  },
+  "sepp": null,
+  "vendor": "",
+  "vulnerabilities": []
+}
