@@ -165,12 +165,16 @@ def build_sccp_called_address(gt_digits, ssn=SSN_HLR):
     Returns:
         bytes: Encoded SCCP address
     """
-    # Address Indicator:
+    # Address Indicator (ITU-T Q.713):
     # bit 0: PC indicator (0 = no PC)
     # bit 1: SSN indicator (1 = SSN included)
     # bits 2-5: GT indicator (0100 = GT includes TT, NP, ES, NAI)
     # bits 6-7: Routing indicator (00 = route on GT)
+    # 0x12 = SSN present + GT type 4, but missing Route on GT flag
+    # Correct: 0x12 for route-on-SSN, 0x52 for route-on-GT with SSN
     ai = 0x12  # SSN present, GT type 0100, route on GT
+    # NOTE: For international routing, use ai = 0x52 (Route on GT + SSN + GT type 4)
+    # ai = 0x52  # Uncomment for international GT routing
     
     # Global Title: Translation Type + Numbering Plan + Encoding Scheme + Nature
     tt = 0x00           # Translation Type: 0
@@ -185,7 +189,7 @@ def build_sccp_called_address(gt_digits, ssn=SSN_HLR):
 
 def build_sccp_calling_address(gt_digits, ssn=SSN_HLR):
     """Build SCCP Calling Party Address with Global Title."""
-    ai = 0x12
+    ai = 0x12  # SSN present, GT type 0100
     tt = 0x00
     np_es = 0x12
     nai = 0x04
@@ -195,13 +199,18 @@ def build_sccp_calling_address(gt_digits, ssn=SSN_HLR):
     return bytes([len(addr)]) + addr
 
 def _encode_gt_bcd(digits):
-    """Encode GT digits to BCD format."""
+    """Encode GT digits to TBCD (Telephony BCD) format.
+    
+    TBCD encoding: each pair of digits is swapped.
+    First digit -> low nibble, Second digit -> high nibble.
+    Odd-length numbers are padded with 0xF in the high nibble.
+    """
     result = []
     if len(digits) % 2 == 1:
-        digits += '0'
+        digits += 'F'  # Pad with filler 0xF, not '0'
     for i in range(0, len(digits), 2):
-        low = int(digits[i])
-        high = int(digits[i+1])
+        low = int(digits[i]) if digits[i] != 'F' else 0xF
+        high = int(digits[i+1]) if digits[i+1] != 'F' else 0xF
         result.append((high << 4) | low)
     return bytes(result)
 

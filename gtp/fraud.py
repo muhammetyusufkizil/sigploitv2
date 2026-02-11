@@ -4,7 +4,7 @@ GTPv2 Fraud attacks
 
 Created on 13 Sep 2018
 
-@author: loay
+@author: myk
 '''
 
 import os

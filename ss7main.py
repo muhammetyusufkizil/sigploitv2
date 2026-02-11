@@ -11,12 +11,12 @@ SS7 main
 '''
 
 import os
+import sys
 import time
 import ss7.tracking
 import ss7.fraud
 import ss7.interception
 import ss7.dos
-import sigploit
 
 
 
@@ -29,218 +29,295 @@ def cleaner():
             pass
 
 def ss7tracking():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Konum Takibi alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[31mLocation Tracking\033[0m ".center(105, "#"))
-    print(" \033[34mSelect a Message from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Message".rjust(10) + "\t\t\tDescription")
-    print("   --------                    ------------")
-    print("0) SendRoutingInfo".rjust(21) + "\t\tLocation Tracking, used to route calls could be blocked")
-    print("1) ProvideSubscriberInfo".rjust(27) + "\tReliable Location Tracking")
-    print("2) SendRoutingInfoForSM".rjust(26) + "\tReliable Location Tracking, if SMS home routing is not applied,should be run twice to check consistent replies")
-    print("3) AnyTimeInterrogation".rjust(26) + "\tLocation Tracking, blocked by most of operators")
-    print("4) SendRoutingInfoForGPRS".rjust(28) + "\tLocation tracking, used to route data, it will retrieve SGSN GT")
+        print(" \033[31mKonum Takibi (Location Tracking)\033[0m ".center(105, "#"))
+        print(" \033[34mBir mesaj secin\033[0m ".center(105, "#"))
+        print()
+        print("   Mesaj".rjust(10) + "\t\t\tAciklama")
+        print("   --------                    ------------")
+        print("0) SendRoutingInfo".rjust(21) + "\t\tKonum takibi, cagri yonlendirme (engellenebilir)")
+        print("1) ProvideSubscriberInfo".rjust(27) + "\tGuvenilir konum takibi")
+        print("2) SendRoutingInfoForSM".rjust(26) + "\tSMS konum takibi (HR yoksa 2 kez calistirilmali)")
+        print("3) AnyTimeInterrogation".rjust(26) + "\tKonum takibi (cogu operator engeller)")
+        print("4) SendRoutingInfoForGPRS".rjust(28) + "\tGPRS konum, SGSN GT alir")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31mtracking\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31mtracking\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        ss7.tracking.sri()
-    elif choice == "1":
-        ss7.tracking.psi()
-    elif choice == "2":
-        ss7.tracking.srism()
-    elif choice == "3":
-        ss7.tracking.ati()
-    elif choice == "4":
-        ss7.tracking.srigprs()
-    elif choice == "back":
-        attacksMenu()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0 - 4)')
-        time.sleep(1.5)
-        ss7tracking()
+        if choice == "back":
+            return 'sub'  # Alt menüden döndük
+        elif choice == "0":
+            nav = ss7.tracking.sri()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+            # 'sub' ise döngü devam eder
+        elif choice == "1":
+            nav = ss7.tracking.psi()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "2":
+            nav = ss7.tracking.srism()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "3":
+            nav = ss7.tracking.ati()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "4":
+            nav = ss7.tracking.srigprs()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 4)')
+            time.sleep(1.5)
 
 
 def ss7interception():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Dinleme (Interception) alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[31mInterception\033[0m ".center(105, "#"))
-    print(" \033[34mSelect a Message from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Message".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                             -----------")
-    print("0) UpdateLocation".rjust(20) + "\t\t\tStealthy SMS Interception")
+        print(" \033[31mDinleme (Interception)\033[0m ".center(105, "#"))
+        print(" \033[34mBir mesaj secin\033[0m ".center(105, "#"))
+        print()
+        print("   Mesaj".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                             -----------")
+        print("0) UpdateLocation".rjust(20) + "\t\t\tGizli SMS dinleme")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31minterception\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31minterception\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        ss7.interception.ul()
-
-    elif choice == "back":
-        attacksMenu()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0)')
-        time.sleep(1.5)
-        ss7interception()
+        if choice == "back":
+            return 'sub'
+        elif choice == "0":
+            nav = ss7.interception.ul()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0)')
+            time.sleep(1.5)
 
 
 def ss7fraud():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Dolandırıcılık & Bilgi Toplama alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[31mFraud & Info\033[0m ".center(105, "#"))
-    print(" \033[34mSelect a Message from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Message".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                            ------------")
-    print("0) SendIMSI".rjust(14) + "\t\t\t\tRetrieving IMSI of a subscriber")
-    print("1) MTForwardSMS".rjust(18) + "\t\t\tSMS Phishing and Spoofing")
-    print("2) InsertSubscriberData".rjust(26) + "\t\tSubscriber Profile Manipulation")
-    print("3) SendAuthenticationInfo".rjust(28) + "\t\tSubscriber Authentication Vectors retrieval")
-    print("4) CancelLocation".rjust(20) + "\t\t\tCancel subscriber location (disconnect)")
+        print(" \033[31mDolandiricilik & Bilgi Toplama\033[0m ".center(105, "#"))
+        print(" \033[34mBir mesaj secin\033[0m ".center(105, "#"))
+        print()
+        print("   Mesaj".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                            ------------")
+        print("0) SendIMSI".rjust(14) + "\t\t\t\tAbone IMSI numarasini alma")
+        print("1) MTForwardSMS".rjust(18) + "\t\t\tSMS oltalama ve sahte SMS")
+        print("2) InsertSubscriberData".rjust(26) + "\t\tAbone profili degistirme")
+        print("3) SendAuthenticationInfo".rjust(28) + "\t\tAbone kimlik dogrulama vektorleri")
+        print("4) CancelLocation".rjust(20) + "\t\t\tAbone konumunu iptal et (baglanti kes)")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31mfraud\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31mfraud\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        ss7.fraud.simsi()
-    elif choice == "1":
-        ss7.fraud.mtsms()
-    elif choice == "2":
-        ss7.fraud.isd()
-    elif choice == "3":
-        ss7.fraud.sai()
-    elif choice == "4":
-        ss7.fraud.cl()
-    elif choice == "back":
-        attacksMenu()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0-4)')
-        time.sleep(1.5)
-        ss7fraud()
+        if choice == "back":
+            return 'sub'
+        elif choice == "0":
+            nav = ss7.fraud.simsi()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "1":
+            nav = ss7.fraud.mtsms()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "2":
+            nav = ss7.fraud.isd()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "3":
+            nav = ss7.fraud.sai()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        elif choice == "4":
+            nav = ss7.fraud.cl()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-4)')
+            time.sleep(1.5)
 
 
 def ss7dos():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """DoS (Servis Engelleme) alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[31mDenial of Service\033[0m ".center(105, "#"))
-    print(" \033[34mSelect a Message from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Message".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                            ------------")
-    print("0) PurgeMS-Subscriber DoS".rjust(28) + "\t\t Mass DoS attack on Subscribers to take them off network")
+        print(" \033[31mDoS (Servis Engelleme)\033[0m ".center(105, "#"))
+        print(" \033[34mBir mesaj secin\033[0m ".center(105, "#"))
+        print()
+        print("   Mesaj".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                            ------------")
+        print("0) PurgeMS-Subscriber DoS".rjust(28) + "\t\tToplu abone DoS saldirisi")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31mdos\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31mdos\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        ss7.dos.purge()
-    elif choice == "back":
-        attacksMenu()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0)')
-        time.sleep(1.5)
-        ss7dos()
+        if choice == "back":
+            return 'sub'
+        elif choice == "0":
+            nav = ss7.dos.purge()
+            if nav == 'attacks':
+                return 'attacks'
+            elif nav == 'main':
+                return 'main'
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0)')
+            time.sleep(1.5)
+
+
+def _handle_submenu_nav(nav_result):
+    """Alt menü navigasyon sonucunu işle.
+    
+    Returns:
+        str or None: 'main' ise ana menüye dön, None ise attacksMenu döngüsünde kal
+    """
+    if nav_result == 'main':
+        return 'main'
+    # 'attacks' veya 'sub' ise attacksMenu döngüsünde kal
+    return None
 
 
 def attacksMenu():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """SS7 Saldırı Kategorisi menüsü - döngü ile çalışır."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[34mSaldırı Kategorisi Seçin\033[0m ".center(105, "#"))
-    print()
-    print("0) Konum Takibi".rjust(18))
-    print("1) Çağrı ve SMS Dinleme".rjust(26))
-    print("2) Dolandırıcılık & Bilgi Toplama".rjust(36))
-    print("3) DoS (Servis Engelleme)".rjust(28))
-    print("4) Ağ Keşfi (Leak Tarayıcı)".rjust(30))
-    print("5) Çoklu Protokol Tarayıcı (SS7+Diameter+GTP+SIP)".rjust(53))
-    print("6) Diameter Saldırıları (4G/LTE)".rjust(35))
-    print("7) SS7 Güvenlik Duvarı Testi".rjust(31))
-    print("8) Toplu Gateway Saldırısı (Tüm IP'lere SRI)".rjust(48))
-    print()
-    print("Ana menüye dönmek için back yazın".rjust(36))
-    print()
+        print(" \033[34mSaldiri Kategorisi Secin\033[0m ".center(105, "#"))
+        print()
+        print("0) Konum Takibi".rjust(18))
+        print("1) Cagri ve SMS Dinleme".rjust(26))
+        print("2) Dolandiricilik & Bilgi Toplama".rjust(36))
+        print("3) DoS (Servis Engelleme)".rjust(28))
+        print("4) Ag Kesfi (Leak Tarayici)".rjust(30))
+        print("5) Coklu Protokol Tarayici (SS7+Diameter+GTP+SIP)".rjust(53))
+        print("6) Diameter Saldirilari (4G/LTE)".rjust(35))
+        print("7) SS7 Guvenlik Duvari Testi".rjust(31))
+        print("8) Toplu Gateway Saldirisi (Tum IP'lere SRI)".rjust(48))
+        print()
+        print("Ana menuye donmek icin back yazin".rjust(36))
+        print()
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31mattacks\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31mattacks\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        ss7tracking()
+        if choice == "back":
+            return  # mainMenu döngüsüne geri dön
 
-    elif choice == "1":
-        ss7interception()
+        elif choice == "0":
+            nav = ss7tracking()
+            if _handle_submenu_nav(nav) == 'main':
+                return
 
-    elif choice == "2":
-        ss7fraud()
+        elif choice == "1":
+            nav = ss7interception()
+            if _handle_submenu_nav(nav) == 'main':
+                return
 
-    elif choice == "3":
-        ss7dos()
+        elif choice == "2":
+            nav = ss7fraud()
+            if _handle_submenu_nav(nav) == 'main':
+                return
 
-    elif choice == "4":
-        try:
-            from ss7 import scan
-            scan.scan_main()
-            attacksMenu()
-        except ImportError as e:
-             print(f"Error importing scan module: {e}")
-             time.sleep(2)
-             attacksMenu()
+        elif choice == "3":
+            nav = ss7dos()
+            if _handle_submenu_nav(nav) == 'main':
+                return
 
-    elif choice == "5":
-        try:
-            from ss7 import multi_scan
-            multi_scan.multi_scan_menu()
-            attacksMenu()
-        except ImportError as e:
-             print(f"Error importing multi_scan module: {e}")
-             time.sleep(2)
-             attacksMenu()
+        elif choice == "4":
+            try:
+                from ss7 import scan
+                scan.scan_main()
+            except ImportError as e:
+                print(f"[-] Scan modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
 
-    elif choice == "6":
-        try:
-            from ss7.attacks import diameter_module
-            diameter_module.diameter_menu()
-            attacksMenu()
-        except ImportError as e:
-             print(f"\033[33m[!] Diameter module not available: {e}\033[0m")
-             print(f"\033[33m[!] Use Multi-Protocol Scanner (option 5) to scan Diameter ports.\033[0m")
-             time.sleep(2)
-             attacksMenu()
+        elif choice == "5":
+            try:
+                from ss7 import multi_scan
+                multi_scan.multi_scan_menu()
+            except ImportError as e:
+                print(f"[-] Multi-scan modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
 
-    elif choice == "7":
-        try:
-            from ss7 import firewall_test
-            firewall_test.firewall_test_menu()
-            attacksMenu()
-        except ImportError as e:
-             print(f"Error importing firewall_test module: {e}")
-             time.sleep(2)
-             attacksMenu()
+        elif choice == "6":
+            try:
+                from ss7.attacks import diameter_module
+                diameter_module.diameter_menu()
+            except ImportError as e:
+                print(f"\033[33m[!] Diameter modulu yuklenemedi: {e}\033[0m")
+                print("[*] Coklu Protokol Tarayici (secenek 5) ile Diameter portlari taranabilir.")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
 
-    elif choice == "8":
-        _multi_gateway_attack_menu()
-        attacksMenu()
+        elif choice == "7":
+            try:
+                from ss7 import firewall_test
+                firewall_test.firewall_test_menu()
+            except ImportError as e:
+                print(f"[-] Firewall test modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
 
-    elif choice == "back":
-        sigploit.mainMenu()
-    else:
-        print('\n\033[31m[-]Hata:\033[0m Geçerli bir seçim yapın (0 - 8)')
-        time.sleep(1.5)
-        attacksMenu()
+        elif choice == "8":
+            _multi_gateway_attack_menu()
+
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 8)')
+            time.sleep(1.5)
 
 
 def _multi_gateway_attack_menu():
@@ -381,18 +458,13 @@ def _multi_gateway_attack_menu():
 
     # Build SRI TCAP
     try:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ss7', 'attacks'))
         from ss7.attacks.map_layer import SendRoutingInfo
         sri = SendRoutingInfo(msisdn)
         tcap_data = sri.to_tcap_begin()
-    except ImportError:
-        try:
-            from map_layer import SendRoutingInfo
-            sri = SendRoutingInfo(msisdn)
-            tcap_data = sri.to_tcap_begin()
-        except ImportError:
-            print("[-] MAP layer import hatası. ss7/attacks/map_layer.py kontrol edin.")
-            return
+    except ImportError as e:
+        print(f"[-] MAP layer import hatası: {e}")
+        print("[*] ss7/attacks/map_layer.py dosyasını kontrol edin.")
+        return
 
     print(f"\n[+] MSISDN: {msisdn}")
     print(f"[+] MAP: SendRoutingInfo (OpCode: 22)")
@@ -406,9 +478,10 @@ def _multi_gateway_attack_menu():
     # Execute
     try:
         from ss7.attacks.tcp_transport import multi_gateway_attack
-    except ImportError:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ss7', 'attacks'))
-        from tcp_transport import multi_gateway_attack
+    except ImportError as e:
+        print(f"[-] TCP transport import hatası: {e}")
+        print("[*] ss7/attacks/tcp_transport.py dosyasını kontrol edin.")
+        return
 
     results = multi_gateway_attack(unique_targets, opc, dpc, tcap_data)
 

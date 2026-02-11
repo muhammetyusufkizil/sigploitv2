@@ -1,23 +1,50 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
-SigPloit Main
+SigPloit Main - Telecom Signaling Exploitation Framework
 
 Created on 1 Feb 2018
 
-@author: loay
+@author: myk
 
 @license:    MIT license
+
+Desteklenen protokoller:
+  SS7/SIGTRAN, Diameter (S6a/S6d), GTP (v1/v2),
+  SIP/VoIP, 5G Core Network, Web Security
 '''
 
 import sys
 import os
 import signal
 import time
-import ss7main
-import gtpmain
-from colorama import init
-from termcolor import cprint
-from pyfiglet import figlet_format
+
+try:
+    import ss7main
+except ImportError:
+    ss7main = None
+
+try:
+    import gtpmain
+except ImportError:
+    gtpmain = None
+
+# Opsiyonel: renkli çıktı kütüphaneleri
+try:
+    from colorama import init as colorama_init
+    colorama_init()
+except ImportError:
+    pass
+
+try:
+    from termcolor import cprint
+except ImportError:
+    def cprint(text, *args, **kwargs):
+        print(text)
+
+try:
+    from pyfiglet import figlet_format
+except ImportError:
+    figlet_format = None
 
 
 def banner(word):
@@ -135,256 +162,289 @@ X      | X     |  X    |   X   |    X  |     X |      X|\|
 
 
 def mainMenu():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-    banner('SigPloit')
-    print("\033[33m[-][-]\033[0m\t\tSignaling Exploitation Framework\t\033[33m [-][-]\033[0m")
-    print("\033[33m[-][-]\033[0m\t\t\tVersion:\033[31mBETA 1.1\033[0m\t\t\033[33m [-][-]\033[0m")
-    print("\033[33m[-][-]\033[0m\t\tAuthor:\033[32mLoay MYK(@mykizil)\033[0m\t\033[33m [-][-]\033[0m\n")
-    print()
-    print("Contributors:")
-
-    print("\t\033[31mRosalia D'Alessandro\033[0m")
-    print("\t\033[31mIlario Dal Grande\033[0m")
-    print()
-    print()
-    print()
-    print()
-    print()
-    print("   Modul".rjust(10) + "\t\t\tAciklama")
-    print("   --------                --------------------")
-    print("0) SS7".rjust(8) + "\t\t2G/3G Ses ve SMS saldirilari")
-    print("1) GTP".rjust(8) + "\t\t3G/4G Veri saldirilari")
-    print("2) Diameter".rjust(13) + "\t\t4G/LTE saldirilari (TAM)")
-    print("3) SIP".rjust(8) + "\t\t4G IMS/VoIP saldirilari (TAM)")
-    print("4) Yerel Ag".rjust(13) + "\t\tWi-Fi cihaz tarama")
-    print("5) Turkiye Tarayici".rjust(21) + "\tTR altyapi tarama + zafiyet testi")
-    print("6) Dunya Tarayici".rjust(19) + "\tGlobal tarama (Diameter+GTP+SIP+SS7)")
-    print("7) Sonuc Test".rjust(15) + "\t\tBulunan sonuclari dogrula + saldiri")
-    print("8) Hedef Bul".rjust(14) + "\t\tShodan/Censys ile hedef bulma")
-    print("9) Oto Zincir".rjust(15) + "\t\tScan->Verify->Exploit->Report")
-    print("10) PCAP Analiz".rjust(17) + "\tPaket yakalama ve analiz")
-    print("11) Web Dashboard".rjust(19) + "\tTarayicida sonuc gorme")
-    print("12) 5G Tarama".rjust(15) + "\t\t5G Core Network kesif")
-    print("13) FW Bypass".rjust(15) + "\t\tSS7 Firewall bypass teknikleri")
-    print("14) Telefon Kesif".rjust(19) + "\tBaz istasyonu tarama (USB telefon)")
-    print("15) Web Tarayici".rjust(18) + "\tWeb sitesi guvenlik tarama")
-    print("16) Spoofing Guard".rjust(19) + "\tSIP/SS7 spoofing tespit analizi")
-
-    print()
-    print("Cikmak icin quit yazin\n".rjust(28))
-
-    choice = input("\033[34msig\033[0m\033[37m>\033[0m ").strip().lower()
-
-    if choice == "0":
+    """Ana menü - döngü ile çalışır (özyineleme yok)."""
+    while True:
         os.system('cls' if os.name == 'nt' else 'clear')
-        ss7main.attacksMenu()
 
-    elif choice == "1":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        gtpmain.prep()
-    elif choice == "2":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.attacks import diameter_module
-            diameter_module.diameter_menu()
-        except ImportError:
-            print("\033[33m[!] Diameter module loading...\033[0m")
-            ss7main.attacksMenu()
-    elif choice == "3":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.attacks.sip_module import sip_menu
-            sip_menu()
-        except ImportError as e:
-            print(f"\033[33m[!] SIP module error: {e}\033[0m")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "4":
-        try:
-            import lan.scanner
-            lan.scanner.main()
-        except ImportError as e:
-            print(f"[-] Error importing LAN module: {e}")
-            time.sleep(2)
-        except Exception as e:
-             print(f"[-] Error: {e}")
-             time.sleep(2)
-        mainMenu()
-    elif choice == "5":
-        try:
-            from turkey import scanner as turkey_scanner
-            turkey_scanner.main()
-        except ImportError as e:
-            print(f"[-] Error importing Turkey module: {e}")
-            print("[!] Lutfen turkey/scanner.py ve bagimliliklari kontrol edin.")
-            time.sleep(2)
-        except KeyboardInterrupt:
-            print("\n[!] Turkey tarayici kullanici tarafindan durduruldu.")
+        banner('SigPloit')
+        print("\033[33m[-][-]\033[0m\t\tSignaling Exploitation Framework\t\033[33m [-][-]\033[0m")
+        print("\033[33m[-][-]\033[0m\t\t\tVersion:\033[31mBETA 1.1\033[0m\t\t\033[33m [-][-]\033[0m")
+        print("\033[33m[-][-]\033[0m\t\tAuthor:\033[32mLoay MYK(@mykizil)\033[0m\t\033[33m [-][-]\033[0m\n")
+        print()
+        print("Contributors:")
+
+        print("\t\033[31mRosalia D'Alessandro\033[0m")
+        print("\t\033[31mIlario Dal Grande\033[0m")
+        print()
+        print()
+        print()
+        print()
+        print()
+        print("   Modul".rjust(10) + "\t\t\tAciklama")
+        print("   --------                --------------------")
+        print("0) SS7".rjust(8) + "\t\t2G/3G Ses ve SMS saldirilari")
+        print("1) GTP".rjust(8) + "\t\t3G/4G Veri saldirilari")
+        print("2) Diameter".rjust(13) + "\t\t4G/LTE saldirilari (TAM)")
+        print("3) SIP".rjust(8) + "\t\t4G IMS/VoIP saldirilari (TAM)")
+        print("4) Yerel Ag".rjust(13) + "\t\tWi-Fi cihaz tarama")
+        print("5) Turkiye Tarayici".rjust(21) + "\tTR altyapi tarama + zafiyet testi")
+        print("6) Dunya Tarayici".rjust(19) + "\tGlobal tarama (Diameter+GTP+SIP+SS7)")
+        print("7) Sonuc Test".rjust(15) + "\t\tBulunan sonuclari dogrula + saldiri")
+        print("8) Hedef Bul".rjust(14) + "\t\tShodan/Censys ile hedef bulma")
+        print("9) Oto Zincir".rjust(15) + "\t\tScan->Verify->Exploit->Report")
+        print("10) PCAP Analiz".rjust(17) + "\tPaket yakalama ve analiz")
+        print("11) Web Dashboard".rjust(19) + "\tTarayicida sonuc gorme")
+        print("12) 5G Tarama".rjust(15) + "\t\t5G Core Network kesif")
+        print("13) FW Bypass".rjust(15) + "\t\tSS7 Firewall bypass teknikleri")
+        print("14) Telefon Kesif".rjust(19) + "\tBaz istasyonu tarama (USB telefon)")
+        print("15) Web Tarayici".rjust(18) + "\tWeb sitesi guvenlik tarama")
+        print("16) Spoofing Guard".rjust(19) + "\tSIP/SS7 spoofing tespit analizi")
+        print("17) Sistem Kontrol".rjust(19) + "\tSistem bagliligi ve gereksinim kontrolu")
+        print("\033[33m18) PC Spoofer\033[0m".rjust(27) + "\t\t\033[33mMAC/Hostname/GUID/DNS degistir\033[0m")
+
+        print()
+        print("Cikmak icin quit yazin\n".rjust(28))
+
+        choice = input("\033[34msig\033[0m\033[37m>\033[0m ").strip().lower()
+
+        if choice == "quit" or choice == "exit" or choice == "cikis":
+            print('\nSigPloit kapatiliyor...')
             time.sleep(1)
-        except Exception as e:
-             print(f"[-] Error: {e}")
-             time.sleep(2)
-        mainMenu()
-    elif choice == "6":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7 import multi_scan
-            multi_scan.multi_scan_menu()
-        except ImportError as e:
-            print(f"[-] Module error: {e}")
+            sys.exit(0)
+
+        elif choice == "0":
+            if ss7main is None:
+                print("\033[31m[-] SS7 modulu yuklenemedi!\033[0m")
+                time.sleep(2)
+                continue
+            os.system('cls' if os.name == 'nt' else 'clear')
+            ss7main.attacksMenu()
+
+        elif choice == "1":
+            if gtpmain is None:
+                print("\033[31m[-] GTP modulu yuklenemedi!\033[0m")
+                time.sleep(2)
+                continue
+            os.system('cls' if os.name == 'nt' else 'clear')
+            gtpmain.prep()
+
+        elif choice == "2":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.attacks import diameter_module
+                diameter_module.diameter_menu()
+            except ImportError as e:
+                print(f"\033[33m[!] Diameter modulu hatasi: {e}\033[0m")
+                print("[*] ss7/attacks/diameter_module.py kontrol edin")
+                time.sleep(2)
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+
+        elif choice == "3":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.attacks.sip_module import sip_menu
+                sip_menu()
+            except ImportError as e:
+                print(f"\033[33m[!] SIP modulu hatasi: {e}\033[0m")
+                time.sleep(2)
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+
+        elif choice == "4":
+            try:
+                import lan.scanner
+                lan.scanner.main()
+            except ImportError as e:
+                print(f"[-] LAN modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "5":
+            try:
+                from turkey import scanner as turkey_scanner
+                turkey_scanner.main()
+            except ImportError as e:
+                print(f"[-] Turkey modulu hatasi: {e}")
+                print("[*] turkey/scanner.py kontrol edin")
+                time.sleep(2)
+            except KeyboardInterrupt:
+                print("\n[!] Tarayici durduruldu.")
+                time.sleep(1)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "6":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7 import multi_scan
+                multi_scan.multi_scan_menu()
+            except ImportError as e:
+                print(f"[-] Multi-scan modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "7":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                import quick_scan
+                quick_scan.main()
+            except ImportError as e:
+                print(f"[-] Quick scan modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "8":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.shodan_search import shodan_search_menu
+                shodan_search_menu()
+            except ImportError as e:
+                print(f"[-] Shodan modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "9":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                import auto_chain
+                auto_chain.chain_menu()
+            except ImportError as e:
+                print(f"[-] Auto chain modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "10":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.pcap_analyzer import pcap_menu
+                pcap_menu()
+            except ImportError as e:
+                print(f"[-] PCAP modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "11":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from web.dashboard import run_dashboard
+                print("\n[+] Web Dashboard baslatiliyor...")
+                print("[+] Tarayicidan http://localhost:5000 adresine gidin")
+                print("[+] Durdurmak icin Ctrl+C\n")
+                run_dashboard()
+            except ImportError as e:
+                print(f"[-] Dashboard hatasi: {e}")
+                print("[*] Flask kurmak icin: pip install flask")
+                time.sleep(3)
+            except KeyboardInterrupt:
+                print("\n[+] Dashboard durduruldu.")
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "12":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.attacks.fiveg_module import fiveg_menu
+                fiveg_menu()
+            except ImportError as e:
+                print(f"[-] 5G modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "13":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.firewall_bypass import bypass_menu
+                bypass_menu()
+            except ImportError as e:
+                print(f"[-] Firewall bypass modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "14":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from phone_recon import phone_menu
+                phone_menu()
+            except ImportError as e:
+                print(f"[-] Telefon modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "15":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from web_scanner import web_scan_menu
+                web_scan_menu()
+            except ImportError as e:
+                print(f"[-] Web scanner modulu hatasi: {e}")
+                print("[*] Gerekli: pip install requests")
+                time.sleep(3)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "16":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                import spoofing_guard
+                spoofing_guard.run_guard_menu()
+            except ImportError as e:
+                print(f"[-] Spoofing guard modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "17":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                import system_check
+                system_check.run_system_check()
+            except ImportError as e:
+                print(f"[-] Sistem kontrol modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        elif choice == "18":
+            os.system('cls' if os.name == 'nt' else 'clear')
+            try:
+                from ss7.pc_spoofer import pc_spoofer_menu
+                pc_spoofer_menu()
+            except ImportError as e:
+                print(f"[-] PC Spoofer modulu hatasi: {e}")
+                time.sleep(2)
+            except Exception as e:
+                print(f"[-] Hata: {e}")
+                time.sleep(2)
+
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 18)')
             time.sleep(2)
-        except Exception as e:
-            print(f"[-] Error: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "7":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            import quick_scan
-            quick_scan.main()
-        except ImportError as e:
-            print(f"[-] Module error: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Error: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "8":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.shodan_search import shodan_search_menu
-            shodan_search_menu()
-        except ImportError as e:
-            print(f"[-] Shodan modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "9":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            import auto_chain
-            auto_chain.chain_menu()
-        except ImportError as e:
-            print(f"[-] Auto chain modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "10":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.pcap_analyzer import pcap_menu
-            pcap_menu()
-        except ImportError as e:
-            print(f"[-] PCAP modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "11":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from web.dashboard import run_dashboard
-            print("\n[+] Web Dashboard baslatiliyor...")
-            print("[+] Tarayicidan http://localhost:5000 adresine gidin")
-            print("[+] Durdurmak icin Ctrl+C\n")
-            run_dashboard()
-        except ImportError as e:
-            print(f"[-] Dashboard hatasi: {e}")
-            print("[*] Flask kurmak icin: pip install flask")
-            time.sleep(3)
-        except KeyboardInterrupt:
-            print("\n[+] Dashboard durduruldu.")
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "12":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.attacks.fiveg_module import fiveg_menu
-            fiveg_menu()
-        except ImportError as e:
-            print(f"[-] 5G modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "13":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from ss7.firewall_bypass import bypass_menu
-            bypass_menu()
-        except ImportError as e:
-            print(f"[-] Firewall bypass modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "14":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from phone_recon import phone_menu
-            phone_menu()
-        except ImportError as e:
-            print(f"[-] Telefon modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "15":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            from web_scanner import web_scan_menu
-            web_scan_menu()
-        except ImportError as e:
-            print(f"[-] Web scanner modulu hatasi: {e}")
-            print("[*] Gerekli: pip install requests")
-            time.sleep(3)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "16":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            import spoofing_guard
-            spoofing_guard.run_guard_menu()
-        except ImportError as e:
-            print(f"[-] Spoofing guard modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "17":
-        os.system('cls' if os.name == 'nt' else 'clear')
-        try:
-            import system_check
-            system_check.run_system_check()
-        except ImportError as e:
-            print(f"[-] Sistem kontrol modulu hatasi: {e}")
-            time.sleep(2)
-        except Exception as e:
-            print(f"[-] Hata: {e}")
-            time.sleep(2)
-        mainMenu()
-    elif choice == "quit" or choice == "exit" or choice == "cikis":
-        print('\nSigPloit kapatiliyor...')
-        time.sleep(1)
-        sys.exit(0)
-    else:
-        print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0 - 17)')
-        time.sleep(2)
-        mainMenu()
 
 
 def signal_handler(signal, frame):

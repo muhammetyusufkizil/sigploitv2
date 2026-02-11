@@ -1,102 +1,132 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 """
-Created on 1 Feb 2018
+SS7 Fraud & Information Gathering Module
+Dolandırıcılık ve bilgi toplama saldırıları:
+SendIMSI, MTForwardSMS, InsertSubscriberData, SendAuthenticationInfo, CancelLocation
 
 @author: loay
+@license: MIT license
 """
 
-import os
 import sys
 import time
-from subprocess import *
 
-import sigploit
-import ss7main
 
-simsi_path = os.path.join(os.getcwd(), 'ss7/attacks/fraud/simsi')
-mtsms_path = os.path.join(os.getcwd(), 'ss7/attacks/fraud/mtsms')
-cl_path = os.path.join(os.getcwd(), 'ss7/attacks/fraud/cl')
-isd_path = os.path.join(os.getcwd(),'ss7/attacks/fraud/isd')
-sai_path = os.path.join(os.getcwd(),'ss7/attacks/fraud/sai')
-
+def _post_attack_nav(menu_name="Dolandiricilik"):
+    """Saldırı sonrası navigasyon menüsü.
+    
+    Returns:
+        str: 'sub' (alt menüye dön), 'attacks' (saldırı menüsüne dön),
+             'main' (ana menüye dön), 'exit' (çık)
+    """
+    print()
+    choice = input(f'\n{menu_name} menusune donmek ister misiniz? (e/h): ').strip().lower()
+    if choice in ('e', 'evet', 'y', 'yes'):
+        return 'sub'
+    elif choice in ('h', 'hayir', 'n', 'no'):
+        attack_menu = input('Baska bir saldiri kategorisi secmek ister misiniz? (e/h): ').strip().lower()
+        if attack_menu in ('e', 'evet', 'y', 'yes'):
+            return 'attacks'
+        elif attack_menu in ('h', 'hayir', 'n', 'no'):
+            main_menu = input('Ana menuye donmek ister misiniz? (e/cikis): ').strip().lower()
+            if main_menu in ('e', 'evet', 'y', 'yes'):
+                return 'main'
+            elif main_menu in ('cikis', 'exit'):
+                print('TCAP End...')
+                sys.exit(0)
+    return 'sub'  # Varsayılan: alt menüye dön
 
 
 def simsi():
+    """SendIMSI - Abone IMSI numarasını alma."""
     try:
         from ss7.attacks.fraud import simsi_scapy
         simsi_scapy.simsi_main()
-        _fraud_menu_return()
-
+        return _post_attack_nav("Dolandiricilik")
     except ImportError as e:
-        print("\033[31m[-]Error:\033[0m Scapy script not found: %s" % str(e))
+        print(f"\033[31m[-] SendIMSI modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
     except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        print(f"\033[31m[-] SendIMSI hatasi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
+        return 'sub'
+
 
 def mtsms():
+    """MTForwardSMS - SMS oltalama ve sahte SMS."""
     try:
         from ss7.attacks.fraud import mtsms_scapy
         mtsms_scapy.mtsms_main()
-        _fraud_menu_return()
-
-    except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        return _post_attack_nav("Dolandiricilik")
+    except ImportError as e:
+        print(f"\033[31m[-] MTForwardSMS modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
+    except Exception as e:
+        print(f"\033[31m[-] MTForwardSMS hatasi: {e}\033[0m")
+        time.sleep(2)
+        return 'sub'
+
 
 def cl():
+    """CancelLocation - Abone konumunu iptal et (bağlantı kes)."""
     try:
         from ss7.attacks.fraud import cl_scapy
         cl_scapy.cl_main()
-        _fraud_menu_return()
-
+        return _post_attack_nav("Dolandiricilik")
     except ImportError as e:
-        print("\033[31m[-]Error:\033[0m Scapy script not found: %s" % str(e))
+        print(f"\033[31m[-] CancelLocation modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
     except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        print(f"\033[31m[-] CancelLocation hatasi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
-        
+        return 'sub'
+
+
 def isd():
+    """InsertSubscriberData - Abone profili değiştirme."""
     try:
         from ss7.attacks.fraud import isd_scapy
         isd_scapy.isd_main()
-        _fraud_menu_return()
-
-    except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        return _post_attack_nav("Dolandiricilik")
+    except ImportError as e:
+        print(f"\033[31m[-] ISD modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
+    except Exception as e:
+        print(f"\033[31m[-] ISD hatasi: {e}\033[0m")
+        time.sleep(2)
+        return 'sub'
+
 
 def sai():
+    """SendAuthenticationInfo - Abone kimlik doğrulama vektörleri."""
     try:
         from ss7.attacks.fraud import sai_scapy
         sai_scapy.sai_main()
-        _fraud_menu_return()
-
-    except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        return _post_attack_nav("Dolandiricilik")
+    except ImportError as e:
+        print(f"\033[31m[-] SAI modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7fraud()
-
-def _fraud_menu_return():
-    fr = input('\nWould you like to go back to Fraud Menu? (y/n): ')
-    if fr == 'y' or fr == 'yes':
-        ss7main.ss7fraud()
-    elif fr == 'n' or fr == 'no':
-        attack_menu = input('Would you like to choose another attacks category? (y/n): ')
-        if attack_menu == 'y' or attack_menu == 'yes':
-            ss7main.attacksMenu()
-        elif attack_menu == 'n' or attack_menu == 'no':
-            main_menu = input('Would you like to go back to the main menu? (y/exit): ')
-            if main_menu == 'y' or main_menu == 'yes':
-                sigploit.mainMenu()
-            elif main_menu == 'exit':
-                print('TCAP End...')
-                sys.exit(0)
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
+    except Exception as e:
+        print(f"\033[31m[-] SAI hatasi: {e}\033[0m")
+        time.sleep(2)
+        return 'sub'

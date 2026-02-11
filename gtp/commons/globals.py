@@ -1,7 +1,7 @@
 '''
 Created on 24 Jan 2018
 
-@author: lia
+@author: myk
 '''
 
 #GTP_C_PORT = 2123

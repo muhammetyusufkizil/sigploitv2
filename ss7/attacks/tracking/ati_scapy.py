@@ -9,7 +9,7 @@ import os
 from scapy.all import *
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ss7.attacks.ss7_layers import *
+from ss7.attacks.ss7_layers import get_input, validate_ip, validate_msisdn, M3UA, M3UA_Param_Protocol_Data
 from ss7.attacks.map_layer import AnyTimeInterrogation
 
 def ati_main():

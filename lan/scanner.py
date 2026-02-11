@@ -35,7 +35,10 @@ def access_points_scan():
     target_ip = get_local_ip_range()
     
     print(f"\n[+] Scanning {target_ip} ... Please wait.")
-    print(f"[+] Using Interface: {conf.iface.name}")
+    try:
+        print(f"[+] Using Interface: {conf.iface.name}")
+    except AttributeError:
+        print(f"[+] Using Interface: default")
     
     # Warning for Hotspot Users
     if target_ip.startswith("10.") or target_ip.startswith("172."):

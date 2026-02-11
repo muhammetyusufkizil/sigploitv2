@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SigPloit Kullanım Kılavuzu - SS7, GTP, Diameter güvenlik test çerçevesi wiki">
+    <title>SigPloit Wiki | Kullanım Kılavuzu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --wiki-bg: #0f1419;
+            --wiki-surface: #1a2332;
+            --wiki-surface-hover: #243044;
+            --wiki-border: #2d3a4f;
+            --wiki-text: #e7e9ea;
+            --wiki-text-muted: #8b98a5;
+            --wiki-accent: #1d9bf0;
+            --wiki-accent-hover: #1a8cd8;
+            --wiki-success: #00ba7c;
+            --wiki-warning: #ffad1f;
+            --wiki-danger: #f4214e;
+            --sidebar-width: 280px;
+        }
+        * { scroll-margin-top: 1.5rem; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--wiki-bg);
+            color: var(--wiki-text);
+            line-height: 1.65;
+        }
+        .wiki-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        /* Sidebar */
+        .wiki-sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: var(--wiki-surface);
+            border-right: 1px solid var(--wiki-border);
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .wiki-sidebar .brand {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--wiki-border);
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--wiki-accent);
+        }
+        .wiki-sidebar .nav-section {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--wiki-border);
+        }
+        .wiki-sidebar .nav-section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--wiki-text-muted);
+            padding: 0.5rem 1.5rem;
+        }
+        .wiki-sidebar .nav-link {
+            display: block;
+            padding: 0.5rem 1.5rem;
+            color: var(--wiki-text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.15s, background 0.15s;
+        }
+        .wiki-sidebar .nav-link:hover {
+            color: var(--wiki-accent);
+            background: var(--wiki-surface-hover);
+        }
+        .wiki-sidebar .nav-link.active {
+            color: var(--wiki-accent);
+            background: rgba(29, 155, 240, 0.1);
+            border-left: 3px solid var(--wiki-accent);
+            padding-left: calc(1.5rem - 3px);
+        }
+        /* Main content */
+        .wiki-main {
+            flex: 1;
+            padding: 2rem 3rem 4rem;
+            max-width: 900px;
+        }
+        .wiki-main h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--wiki-text);
+        }
+        .wiki-main .lead {
+            color: var(--wiki-text-muted);
+            font-size: 1.05rem;
+            margin-bottom: 2rem;
+        }
+        .wiki-main h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--wiki-border);
+            color: var(--wiki-text);
+        }
+        .wiki-main h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--wiki-text);
+        }
+        .wiki-main h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--wiki-text-muted);
+        }
+        .wiki-main p { margin-bottom: 1rem; color: var(--wiki-text-muted); }
+        .wiki-main ul, .wiki-main ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            color: var(--wiki-text-muted);
+        }
+        .wiki-main li { margin-bottom: 0.35rem; }
+        .wiki-main code, .wiki-main kbd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88em;
+            background: var(--wiki-surface);
+            padding: 0.2em 0.45em;
+            border-radius: 4px;
+            color: var(--wiki-accent);
+            border: 1px solid var(--wiki-border);
+        }
+        .wiki-main pre {
+            background: var(--wiki-surface);
+            border: 1px solid var(--wiki-border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--wiki-text);
+        }
+        .wiki-main pre code {
+            background: none;
+            padding: 0;
+            border: none;
+            color: inherit;
+        }
+        .wiki-main table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+        .wiki-main th, .wiki-main td {
+            border: 1px solid var(--wiki-border);
+            padding: 0.6rem 0.9rem;
+            text-align: left;
+        }
+        .wiki-main th {
+            background: var(--wiki-surface);
+            color: var(--wiki-text);
+            font-weight: 600;
+        }
+        .wiki-main td { color: var(--wiki-text-muted); }
+        .wiki-main .card-module {
+            background: var(--wiki-surface);
+            border: 1px solid var(--wiki-border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .wiki-main .card-module .title {
+            font-weight: 600;
+            color: var(--wiki-text);
+            margin-bottom: 0.35rem;
+        }
+        .wiki-main .card-module .desc { color: var(--wiki-text-muted); font-size: 0.9rem; }
+        .wiki-main .badge-proto {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .badge-ss7 { background: rgba(244, 33, 78, 0.2); color: #f4214e; }
+        .badge-gtp { background: rgba(0, 186, 124, 0.2); color: #00ba7c; }
+        .badge-diameter { background: rgba(29, 155, 240, 0.2); color: #1d9bf0; }
+        .badge-sip { background: rgba(138, 87, 229, 0.2); color: #8a57e5; }
+        .wiki-main .alert-wiki {
+            background: rgba(29, 155, 240, 0.08);
+            border: 1px solid rgba(29, 155, 240, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--wiki-text);
+        }
+        .wiki-main .alert-warning {
+            background: rgba(255, 173, 31, 0.08);
+            border: 1px solid rgba(255, 173, 31, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--wiki-text);
+        }
+        .wiki-main .alert-danger {
+            background: rgba(244, 33, 78, 0.08);
+            border: 1px solid rgba(244, 33, 78, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--wiki-text);
+        }
+        @media (max-width: 991.98px) {
+            .wiki-layout { flex-direction: column; }
+            .wiki-sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .wiki-main { padding: 1.5rem 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wiki-layout">
+        <aside class="wiki-sidebar">
+            <div class="brand">SigPloit Wiki</div>
+            <nav class="wiki-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Genel</div>
+                    <a class="nav-link" href="#giris">Giriş</a>
+                    <a class="nav-link" href="#kurulum">Kurulum</a>
+                    <a class="nav-link" href="#ana-menu">Ana Menü</a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">SS7</div>
+                    <a class="nav-link" href="#ss7-menu">SS7 Saldırı Menüsü</a>
+                    <a class="nav-link" href="#ss7-tracking">Konum Takibi</a>
+                    <a class="nav-link" href="#ss7-interception">Dinleme</a>
+                    <a class="nav-link" href="#ss7-fraud">Dolandırıcılık</a>
+                    <a class="nav-link" href="#ss7-dos">DoS</a>
+                    <a class="nav-link" href="#ss7-scan">Ağ Keşfi & Tarayıcı</a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">GTP & Diğer</div>
+                    <a class="nav-link" href="#gtp">GTP Modülü</a>
+                    <a class="nav-link" href="#cikti-dosyalari">Çıktı Dosyaları</a>
+                    <a class="nav-link" href="#web-dashboard">Web Dashboard</a>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-section-title">Ek Bilgi</div>
+                    <a class="nav-link" href="#yasal">Yasal Uyarı</a>
+                    <a class="nav-link" href="#sss">Sıkça Sorulan Sorular</a>
+                </div>
+            </nav>
+        </aside>
+        <main class="wiki-main">
+            <h1 id="giris">SigPloit Kullanım Kılavuzu</h1>
+            <p class="lead">SS7, Diameter ve GTP protokolleri için telekom güvenlik test çerçevesi — menüler, modüller ve çıktılar hakkında resmi wiki.</p>
+
+            <h2 id="giris-ozet">Giriş</h2>
+            <p><strong>SigPloit</strong>, mobil ağ altyapısındaki güvenlik açıklarını tespit etmek amacıyla tasarlanmış kapsamlı bir sinyalizasyon güvenlik test çerçevesidir. Güvenlik araştırmacıları ve bug bounty avcıları için SS7 (SIGTRAN), Diameter (4G/LTE) ve GTP (mobil veri tünelleme) protokollerinde test ve saldırı modülleri sunar.</p>
+            <p>Desteklenen protokoller ve tipik portlar:</p>
+            <table>
+                <thead><tr><th>Protokol</th><th>Portlar</th><th>Açıklama</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge-proto badge-ss7">SS7/SCTP</span></td><td><code>2904–2908</code></td><td>SIGTRAN, M3UA, SCCP, TCAP, MAP</td></tr>
+                    <tr><td><span class="badge-proto badge-diameter">Diameter</span></td><td><code>3868–3869</code></td><td>4G/LTE sinyalizasyonu</td></tr>
+                    <tr><td><span class="badge-proto badge-gtp">GTP</span></td><td><code>2123</code>, <code>2152</code></td><td>Mobil veri tünelleme</td></tr>
+                    <tr><td><span class="badge-proto badge-sip">SIP</span></td><td><code>5060–5061</code></td><td>VoIP/IMS sinyalizasyonu</td></tr>
+                </tbody>
+            </table>
+
+            <h2 id="kurulum">Kurulum</h2>
+            <p>Python 3.8+ gereklidir. Bağımlılıklar:</p>
+            <pre><code>pip install scapy IPy colorama termcolor pyfiglet</code></pre>
+            <p>Windows’ta ağ paketleri için <strong>Npcap</strong> kurulmalıdır: <a href="https://npcap.com/" target="_blank" rel="noopener">npcap.com</a></p>
+            <p>Çalıştırma (Linux’ta genelde root gerekir):</p>
+            <pre><code>python sigploit.py</code></pre>
+
+            <h2 id="ana-menu">Ana Menü</h2>
+            <p>SigPloit başlatıldığında ana menüde aşağıdaki modüller listelenir. İlgili numarayı yazıp Enter ile seçim yaparsınız. Ana menüye dönmek için alt menülerde <code>back</code> yazabilirsiniz; çıkmak için <code>quit</code>, <code>exit</code> veya <code>cikis</code> yazın.</p>
+
+            <div class="card-module"><div class="title">0) SS7</div><div class="desc">2G/3G ses ve SMS saldırıları. SS7 saldırı menüsünü açar (konum takibi, dinleme, dolandırıcılık, DoS, ağ keşfi, çoklu protokol tarayıcı, Diameter, firewall testi, toplu gateway saldırısı).</div></div>
+            <div class="card-module"><div class="title">1) GTP</div><div class="desc">3G/4G veri saldırıları. GTPv2 menüsü: bilgi toplama (GTP node keşfi, TEID keşfi, TEID tahmin indeksi), dolandırıcılık (tünel ele geçirme), DoS (toplu DoS, kullanıcı DoS).</div></div>
+            <div class="card-module"><div class="title">2) Diameter</div><div class="desc">4G/LTE sinyalizasyon saldırıları. Diameter modülü yüklüyse doğrudan Diameter saldırı menüsüne gider.</div></div>
+            <div class="card-module"><div class="title">3) SIP</div><div class="desc">4G IMS/VoIP saldırıları. SIP modülü ile VoIP/IMS hedeflerine yönelik testler.</div></div>
+            <div class="card-module"><div class="title">4) Yerel Ağ</div><div class="desc">Wi‑Fi üzerinden yerel ağ cihaz tarama (<code>lan/scanner</code>).</div></div>
+            <div class="card-module"><div class="title">5) Türkiye Tarayıcı</div><div class="desc">Türkiye altyapısına yönelik tarama ve zafiyet testi (<code>turkey/scanner</code>).</div></div>
+            <div class="card-module"><div class="title">6) Dünya Tarayıcı</div><div class="desc">Çoklu protokol tarayıcı: SS7 + Diameter + GTP + SIP ile global tarama (<code>ss7/multi_scan</code>).</div></div>
+            <div class="card-module"><div class="title">7) Sonuç Test</div><div class="desc">Bulunan sonuçları doğrula ve saldırı testi. Diameter (3868), GTP (2123), SIP (5060) hedeflerini leak dosyalarından okuyup gerçek protokol el sıkışması ile test eder (<code>quick_scan</code>).</div></div>
+            <div class="card-module"><div class="title">8) Hedef Bul</div><div class="desc">Shodan/Censys ile hedef bulma. Telekom altyapısı (SS7, Diameter, GTP, SIP) için arama sorguları ve ülke bazlı filtre (<code>ss7/shodan_search</code>). API anahtarları <code>config.ini</code> içinde tanımlanmalıdır.</div></div>
+            <div class="card-module"><div class="title">9) Oto Zincir</div><div class="desc">Otomatik zincir: Tarama → Doğrulama → Sömürü → Rapor. Profiller (örn. tam denetim, hızlı keşif) ile özelleştirilebilir (<code>auto_chain</code>).</div></div>
+            <div class="card-module"><div class="title">10) PCAP Analiz</div><div class="desc">Paket yakalama ve analiz. Yakalanan trafiği incelemek için PCAP menüsü (<code>ss7/pcap_analyzer</code>).</div></div>
+            <div class="card-module"><div class="title">11) Web Dashboard</div><div class="desc">Tarayıcıda sonuç görüntüleme. Flask tabanlı panel <code>http://localhost:5000</code> adresinde açılır; hedef sayıları, protokol dağılımı, harita ve dosya listesi sunar.</div></div>
+            <div class="card-module"><div class="title">12) 5G Tarama</div><div class="desc">5G çekirdek ağ keşfi (<code>ss7/attacks/fiveg_module</code>).</div></div>
+            <div class="card-module"><div class="title">13) FW Bypass</div><div class="desc">SS7 güvenlik duvarı bypass teknikleri (<code>ss7/firewall_bypass</code>).</div></div>
+            <div class="card-module"><div class="title">14) Telefon Keşif</div><div class="desc">Baz istasyonu tarama (USB telefon ile) (<code>phone_recon</code>).</div></div>
+            <div class="card-module"><div class="title">15) Web Tarayıcı</div><div class="desc">Web sitesi güvenlik taraması (<code>web_scanner</code>). <code>pip install requests</code> gerekebilir.</div></div>
+            <div class="card-module"><div class="title">16) Spoofing Guard</div><div class="desc">SIP/SS7 spoofing tespit analizi (<code>spoofing_guard</code>).</div></div>
+            <div class="card-module"><div class="title">17) Sistem Kontrol</div><div class="desc">Sistem ve bağımlılık kontrolü (<code>system_check</code>).</div></div>
+
+            <p>Çıkmak için: <code>quit</code>, <code>exit</code> veya <code>cikis</code> yazın.</p>
+
+            <h2 id="ss7-menu">SS7 Saldırı Menüsü</h2>
+            <p>Ana menüden <strong>0) SS7</strong> seçildiğinde aşağıdaki saldırı kategorileri açılır:</p>
+            <ul>
+                <li><strong>0)</strong> Konum Takibi</li>
+                <li><strong>1)</strong> Çağrı ve SMS Dinleme</li>
+                <li><strong>2)</strong> Dolandırıcılık & Bilgi Toplama</li>
+                <li><strong>3)</strong> DoS (Servis Engelleme)</li>
+                <li><strong>4)</strong> Ağ Keşfi (Leak Tarayıcı)</li>
+                <li><strong>5)</strong> Çoklu Protokol Tarayıcı (SS7 + Diameter + GTP + SIP)</li>
+                <li><strong>6)</strong> Diameter Saldırıları (4G/LTE)</li>
+                <li><strong>7)</strong> SS7 Güvenlik Duvarı Testi</li>
+                <li><strong>8)</strong> Toplu Gateway Saldırısı (Tüm IP’lere SRI)</li>
+            </ul>
+            <p><code>back</code> ile ana menüye dönülür.</p>
+
+            <h3 id="ss7-tracking">Konum Takibi (Location Tracking)</h3>
+            <p>Abonenin konum / yönlendirme bilgisini sorgulayan MAP mesajları:</p>
+            <table>
+                <thead><tr><th>Seçenek</th><th>Mesaj</th><th>Açıklama</th></tr></thead>
+                <tbody>
+                    <tr><td>0</td><td>SendRoutingInfo (SRI)</td><td>Konum takibi; çağrı yönlendirme sorgusu, operatörlerce engellenebilir.</td></tr>
+                    <tr><td>1</td><td>ProvideSubscriberInfo (PSI)</td><td>VLR konum sorgusu; güvenilir konum takibi.</td></tr>
+                    <tr><td>2</td><td>SendRoutingInfoForSM (SRI-SM)</td><td>SMS yönlendirme; SMS home routing yoksa tutarlılık için iki kez çalıştırılması önerilir.</td></tr>
+                    <tr><td>3</td><td>AnyTimeInterrogation (ATI)</td><td>Doğrudan HLR sorgusu; birçok operatörde engellenir.</td></tr>
+                    <tr><td>4</td><td>SendRoutingInfoForGPRS</td><td>Veri yönlendirme; SGSN GT bilgisi alınır.</td></tr>
+                </tbody>
+            </table>
+
+            <h3 id="ss7-interception">Çağrı ve SMS Dinleme (Interception)</h3>
+            <p><strong>0) UpdateLocation (UL)</strong> — Gizli SMS dinleme: MSC yönlendirmesi ile SMS’in hedefe ulaşmadan ele geçirilmesi.</p>
+
+            <h3 id="ss7-fraud">Dolandırıcılık & Bilgi Toplama (Fraud)</h3>
+            <table>
+                <thead><tr><th>Seçenek</th><th>Mesaj</th><th>Açıklama</th></tr></thead>
+                <tbody>
+                    <tr><td>0</td><td>SendIMSI</td><td>Abonenin IMSI bilgisinin MSISDN üzerinden alınması.</td></tr>
+                    <tr><td>1</td><td>MTForwardSMS</td><td>SMS phishing ve spoofing.</td></tr>
+                    <tr><td>2</td><td>InsertSubscriberData (ISD)</td><td>Abone profil manipülasyonu.</td></tr>
+                    <tr><td>3</td><td>SendAuthenticationInfo (SAI)</td><td>Kimlik doğrulama vektörlerinin alınması.</td></tr>
+                    <tr><td>4</td><td>CancelLocation (CL)</td><td>Abone konumunu iptal (şebekeden düşürme).</td></tr>
+                </tbody>
+            </table>
+
+            <h3 id="ss7-dos">DoS (Servis Engelleme)</h3>
+            <p><strong>0) PurgeMS – Subscriber DoS</strong> — Aboneleri toplu şekilde şebekeden düşürmek için kullanılır; kitlesel DoS etkisi yaratır.</p>
+
+            <h3 id="ss7-scan">Ağ Keşfi ve Tarayıcılar</h3>
+            <ul>
+                <li><strong>4) Ağ Keşfi (Leak Tarayıcı):</strong> SS7 SCTP açık port taraması; sonuçlar <code>leaks.txt</code> vb. dosyalara yazılır.</li>
+                <li><strong>5) Çoklu Protokol Tarayıcı:</strong> SS7, Diameter, GTP, SIP seçenekleri ile tek menüden tarama; çıktılar <code>leaks_ss7.txt</code>, <code>leaks_diameter.txt</code>, <code>leaks_gtp.txt</code>, <code>leaks_sip.txt</code>, <code>alive_hosts.txt</code>, <code>tcp_open.txt</code>.</li>
+                <li><strong>8) Toplu Gateway Saldırısı:</strong> <code>turkey_verified.txt</code> veya manuel girilen IP:port listesine SendRoutingInfo (SRI) gönderir; M3UA, Direct DATA, SUA ve alternatif port denemeleri yapılır.</li>
+            </ul>
+
+            <h2 id="gtp">GTP Modülü</h2>
+            <p>Ana menüden <strong>1) GTP</strong> → <strong>1) GTPv2</strong> seçildiğinde GTPv2 saldırı menüsü açılır.</p>
+            <h3>Kategoriler</h3>
+            <ul>
+                <li><strong>0) Information Gathering</strong> — Bilgi toplama:
+                    <ul>
+                        <li><strong>0)</strong> GTP Nodes Discovery (EchoRequest, CreateSession, DeleteSession, DeleteBearer ile ağ elemanı keşfi)</li>
+                        <li><strong>1)</strong> TEID Allocation Discovery (CreateSession, ModifyBearer, CreateBearer ile TEID keşfi)</li>
+                        <li><strong>2)</strong> TEID Predictability Index (TEID dizilerinin tahmin edilebilirliği analizi)</li>
+                    </ul>
+                </li>
+                <li><strong>1) Fraud</strong> — <strong>0)</strong> Tunnel Hijack (ModifyBearerRequest ile TEID ele geçirme; <code>TunnelHijack.cnf</code>)</li>
+                <li><strong>2) DoS</strong> — <strong>0)</strong> Massive DoS (GTP-C’ye DeleteSession/CreateSession ile flood), <strong>1)</strong> User DoS (belirli kullanıcının GTP tünelini hedefleme)</li>
+            </ul>
+            <p><code>back</code> ile önce GTP menüsüne, oradan ana menüye dönülür.</p>
+
+            <h2 id="cikti-dosyalari">Çıktı Dosyaları</h2>
+            <p>Tarama ve saldırılar aşağıdaki dosyalara yazılır (proje kök dizininde):</p>
+            <table>
+                <thead><tr><th>Dosya</th><th>İçerik</th></tr></thead>
+                <tbody>
+                    <tr><td><code>leaks.txt</code></td><td>SS7 SCTP açık portlar (zafiyet adayları)</td></tr>
+                    <tr><td><code>leaks_ss7.txt</code></td><td>Çoklu tarayıcıdan SS7 sonuçları</td></tr>
+                    <tr><td><code>leaks_diameter.txt</code></td><td>Diameter açık servisler</td></tr>
+                    <tr><td><code>leaks_gtp.txt</code></td><td>GTP yanıtları</td></tr>
+                    <tr><td><code>leaks_sip.txt</code></td><td>SIP yanıtları</td></tr>
+                    <tr><td><code>alive_hosts.txt</code></td><td>Tüm tarama sonuçları (detaylı)</td></tr>
+                    <tr><td><code>tcp_open.txt</code></td><td>Doğrulama için açık TCP portları</td></tr>
+                    <tr><td><code>turkey_verified.txt</code> / <code>turkey_ss7_results.txt</code></td><td>Türkiye tarayıcı / doğrulanmış SS7 sonuçları</td></tr>
+                    <tr><td><code>ss7_gateway_results.txt</code></td><td>Toplu gateway saldırısı sonuçları (isteğe bağlı kayıt)</td></tr>
+                    <tr><td><code>diameter_results.txt</code>, <code>sip_results.txt</code></td><td>Diameter/SIP saldırı sonuçları</td></tr>
+                    <tr><td><code>chain_summary_*.txt</code></td><td>Oto zincir özet raporları</td></tr>
+                </tbody>
+            </table>
+
+            <h2 id="web-dashboard">Web Dashboard</h2>
+            <p>Ana menüden <strong>11) Web Dashboard</strong> seçildiğinde Flask uygulaması başlar. Tarayıcıda <code>http://localhost:5000</code> adresine giderek:</p>
+            <ul>
+                <li>Toplam hedef, doğrulanan, zafiyet ve rapor dosyası sayılarını,</li>
+                <li>Protokol dağılımı çubuklarını,</li>
+                <li>Hedeflerin harita üzerinde konumlarını,</li>
+                <li>Hedefler, Sonuçlar ve Dosyalar sekmelerini (filtreleme, indirme) görüntüleyebilirsiniz.</li>
+            </ul>
+            <p>Dashboard veriyi proje kökündeki leak ve sonuç dosyalarından okur. Durdurmak için terminalde <kbd>Ctrl+C</kbd> kullanın.</p>
+
+            <h2 id="yasal">Yasal Uyarı</h2>
+            <div class="alert-danger">
+                <strong>Bu araç yalnızca yetkili güvenlik testleri için tasarlanmıştır.</strong> Telekomünikasyon ağlarına yetkisiz erişim yasadışıdır. Yalnızca ağ sahiplerinin açık izniyle veya yetkili bug bounty programları kapsamında kullanın. Sorumlu şekilde kullanım sizin yükümlülüğünüzdür.
+            </div>
+
+            <h2 id="sss">Sıkça Sorulan Sorular</h2>
+            <h4>Telefonumu (iPhone, Samsung vb.) bilgisayara bağlayıp bu aracı kullanabilir miyim?</h4>
+            <p>Hayır. Telefon radyo arayüzü (hava arayüzü) ile konuşur; SigPloit operatör çekirdek ağı (SS7/Core) ile konuşur. Bilgisayar normal internet üzerinden çıkar; sinyalizasyon ağına doğrudan erişemez.</p>
+            <h4>Bu yazılımla çevremdeki baz istasyonlarına sinyal gönderebilir miyim?</h4>
+            <p>Hayır. SigPloit çekirdek ağ (core) tarafındaki güvenlik açıklarını test eder. Baz istasyonu (RAN) ile konuşmak veya sahte sinyal göndermek için SDR (HackRF, BladeRF, USRP) ve OpenBTS/srsRAN gibi farklı yazılımlar gerekir.</p>
+            <h4>Gerçek SS7 testi nasıl yapılır?</h4>
+            <p>SS7 ağına erişim için bir SS7 sağlayıcısı (SS7 Hub) veya operatörle anlaşma gerekir. VPN veya SIGTRAN tüneli, Local/Remote IP, OPC, DPC ve port bilgileri sağlanır. Bu bilgilerle araçtaki ilgili modüle (örn. SendRoutingInfo) gerçek değerler girilerek test yapılabilir. Detay için <code>REHBER_GERCEK_KULLANIM.md</code> dosyasına bakın.</p>
+
+            <hr class="my-5" style="border-color: var(--wiki-border);">
+            <p class="text-muted small">SigPloit Wiki — Sürüm BETA 1.1 · Yazılım yalnızca yetkili testler için kullanılmalıdır.</p>
+        </main>
+    </div>
+    <script>
+        (function () {
+            const navLinks = document.querySelectorAll('.wiki-sidebar .nav-link');
+            const sections = document.querySelectorAll('.wiki-main [id]');
+            function updateActive() {
+                const scrollY = window.scrollY + 120;
+                let current = '';
+                sections.forEach(s => {
+                    if (s.offsetTop <= scrollY) current = s.id;
+                });
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+                });
+            }
+            window.addEventListener('scroll', updateActive);
+            window.addEventListener('load', updateActive);
+        })();
+    </script>
+</body>
+</html>

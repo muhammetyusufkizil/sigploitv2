@@ -11,6 +11,8 @@
 
 **SigPloit**, SS7, Diameter ve GTP protokolleri için kapsamlı bir telekom güvenlik test çerçevesidir. Güvenlik araştırmacıları ve bug bounty avcıları için mobil ağ altyapısındaki güvenlik açıklarını tespit etmek amacıyla tasarlanmıştır.
 
+📖 **Detaylı kullanım kılavuzu:** [Wiki](wiki/index.html) — Menüler, modüller ve çıktı dosyalarının açıklamaları (Türkçe, tarayıcıda `wiki/index.html` açın).
+
 ---
 
 ## 🌟 Features / Özellikler

@@ -1696,6 +1696,76 @@ def _parse_tcap_response(data):
 
 
 # ============================================
+# OZET RAPOR
+# ============================================
+
+def _generate_summary_report():
+    """Tum tarama sonuclarindan ozet rapor olustur."""
+    summary_file = "turkey_summary_report.txt"
+    
+    try:
+        with open(summary_file, 'w', encoding='utf-8') as f:
+            f.write("=" * 70 + "\n")
+            f.write(" TURKIYE SS7 ALTYAPI TAM OZET RAPORU\n")
+            f.write(f" Tarih: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("=" * 70 + "\n\n")
+            
+            # Tarama sonuclari
+            if os.path.exists(OUTPUT_FILE):
+                with open(OUTPUT_FILE, 'r', encoding='utf-8', errors='replace') as tf:
+                    lines = tf.readlines()
+                    candidates = [l for l in lines if '[ADAY]' in l or '[CANDIDATE]' in l]
+                    f.write(f"[TARAMA] {len(candidates)} aday bulundu\n")
+                    if candidates:
+                        f.write("  Son 10 aday:\n")
+                        for line in candidates[-10:]:
+                            f.write(f"    {line.strip()}\n")
+            else:
+                f.write("[TARAMA] Sonuc dosyasi bulunamadi\n")
+            
+            f.write("\n")
+            
+            # Dogrulama sonuclari
+            if os.path.exists(VERIFIED_FILE):
+                with open(VERIFIED_FILE, 'r', encoding='utf-8', errors='replace') as vf_r:
+                    lines = vf_r.readlines()
+                    verified = [l for l in lines if '[VERIFIED]' in l or '[DO' in l]
+                    tcp_open = [l for l in lines if '[TCP-OPEN]' in l or '[TCP_' in l]
+                    f.write(f"[DOGRULAMA] {len(verified)} M3UA dogrulandi, {len(tcp_open)} TCP acik\n")
+                    if verified:
+                        f.write("  Dogrulanmis hedefler:\n")
+                        for line in verified[:20]:
+                            f.write(f"    {line.strip()}\n")
+            else:
+                f.write("[DOGRULAMA] Dogrulama dosyasi bulunamadi\n")
+            
+            f.write("\n")
+            
+            # Zafiyet sonuclari
+            if os.path.exists(VULN_FILE):
+                with open(VULN_FILE, 'r', encoding='utf-8', errors='replace') as vf_r:
+                    content = vf_r.read()
+                    kritik = content.count('[KRITIK]')
+                    yuksek = content.count('[YUKSEK]')
+                    orta = content.count('[ORTA]')
+                    f.write(f"[ZAFIYET] {kritik} KRITIK, {yuksek} YUKSEK, {orta} ORTA\n")
+                    if kritik + yuksek > 0:
+                        f.write("  Zafiyet detaylari:\n")
+                        f.write(content[:2000])
+            else:
+                f.write("[ZAFIYET] Zafiyet dosyasi bulunamadi\n")
+            
+            f.write("\n" + "=" * 70 + "\n")
+            f.write(" RAPOR TAMAMLANDI\n")
+            f.write("=" * 70 + "\n")
+        
+        print(f"\n[+] Ozet rapor: {summary_file}")
+        
+    except Exception as e:
+        print(f"\033[31m[-] Rapor olusturma hatasi: {e}\033[0m")
+
+
+# ============================================
 # ANA MENÜ
 # ============================================
 
@@ -1756,8 +1826,66 @@ def main():
         elif choice == "3":
             print(f"\033[33m[!] Derin tarama: Tum IP + tum SIGTRAN portlari.\033[0m")
             print(f"[!] Portlar: {list(SIGTRAN_PORTS.keys())}")
-            if _prompt_yes_no("[?] Devam? (e/h)", "h"):
-                scan_tr_gateways(scan_ports=list(SIGTRAN_PORTS.keys()))
+            print(f"\n\033[32m[+] TAM OTOMATIK MOD:\033[0m")
+            print(f"    1) Tum operatorler taranacak")
+            print(f"    2) Sonuclar otomatik dogrulanacak (M3UA probe)")
+            print(f"    3) Dogrulanmis hedeflere zafiyet testi yapilacak")
+            print(f"    4) Acik zafiyetlere FW bypass denenecek")
+            print(f"    5) Detayli rapor olusturulacak")
+            
+            if not _prompt_yes_no("\n[?] Tam otomatik zinciri baslat? (e/h)", "e"):
+                continue
+            
+            print("\n" + "=" * 70)
+            print(" OTOMATIK ZINCIR BASLATILIYOR")
+            print("=" * 70)
+            
+            # Aşama 1: Tarama
+            print("\n[ASAMA 1/4] TARAMA")
+            print("-" * 70)
+            scan_tr_gateways(scan_ports=list(SIGTRAN_PORTS.keys()))
+            
+            # Aşama 2: Doğrulama
+            print("\n[ASAMA 2/4] DOGRULAMA")
+            print("-" * 70)
+            if os.path.exists(OUTPUT_FILE):
+                print("[+] Tarama sonuclari bulundu, dogrulama basliyor...")
+                time.sleep(2)
+                try:
+                    verify_results()
+                except Exception as e:
+                    print(f"\033[31m[-] Dogrulama hatasi: {e}\033[0m")
+            else:
+                print("\033[31m[-] Tarama sonucu bulunamadi, dogrulama atlanıyor\033[0m")
+            
+            # Aşama 3: Zafiyet Testi
+            print("\n[ASAMA 3/4] ZAFIYET TESTI")
+            print("-" * 70)
+            if os.path.exists(VERIFIED_FILE) or os.path.exists(OUTPUT_FILE):
+                print("[+] Zafiyet testi basliyor...")
+                time.sleep(2)
+                try:
+                    vulnerability_test()
+                except Exception as e:
+                    print(f"\033[31m[-] Zafiyet testi hatasi: {e}\033[0m")
+            else:
+                print("\033[31m[-] Dogrulanmis hedef yok, zafiyet testi atlanıyor\033[0m")
+            
+            # Aşama 4: Özet Rapor
+            print("\n[ASAMA 4/4] OZET RAPOR")
+            print("-" * 70)
+            _generate_summary_report()
+            
+            print("\n" + "=" * 70)
+            print(" OTOMATIK ZINCIR TAMAMLANDI!")
+            print("=" * 70)
+            print(f"\n[+] Sonuc dosyalari:")
+            print(f"    - Tarama:      {OUTPUT_FILE}")
+            print(f"    - Dogrulama:   {VERIFIED_FILE}")
+            print(f"    - Zafiyet:     {VULN_FILE}")
+            print(f"    - Ozet:        turkey_summary_report.txt")
+            
+            input("\nDevam etmek icin Enter'a basin...")
         elif choice == "4":
             print("\nOperator secin (virgulle ayirin, orn: 0,1,3):")
             for i, isp in enumerate(isp_list):

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """
 Spoofing Guard (Defensive)
-- SIP/telecom çıktı dosyalarında şüpheli spoofing izlerini tespit etmeye yardımcı olur.
+- SIP/SS7/Diameter cikti dosyalarinda supheli spoofing izlerini tespit eder.
+- MAP opcode analizi, SS7 GT/IMSI tutarliligi, Diameter AVP kontrolu.
 """
 import os
 import re
 import time
+import struct
 
 
 def _get_input(prompt, default=None):
@@ -99,6 +101,193 @@ def _detect_tr_focus(lines):
     return findings
 
 
+def _detect_ss7_spoof(lines):
+    """SS7/MAP mesajlarinda spoofing belirtileri tespit et."""
+    findings = []
+    
+    # Tehlikeli MAP opcode'lari
+    dangerous_opcodes = {
+        'updateLocation': 'Konum guncelleme (interception riski)',
+        'cancelLocation': 'Konum iptali (DoS riski)',
+        'insertSubscriberData': 'Profil manipulasyonu',
+        'sendAuthenticationInfo': 'Auth vektor hirsizligi (SIM klonlama)',
+        'provideSubscriberInfo': 'Konum takibi',
+        'anyTimeInterrogation': 'Dogrudan konum sorgusu',
+        'sendRoutingInfo': 'Routing bilgisi sorgulama',
+        'registerSS': 'Servis kaydi (cagri yonlendirme)',
+        'eraseSS': 'Servis silme',
+        'activateSS': 'Servis aktivasyonu',
+        'mtForwardSM': 'SMS gonderme (sahte SMS)',
+        'sendIMSI': 'IMSI cekme',
+        'purgeMS': 'Abone temizleme (DoS)',
+    }
+    
+    # GT (Global Title) tutarsizliklari
+    gt_re = re.compile(r'(?:GT|GlobalTitle|CalledParty|CallingParty)[:\s=]+(\+?\d{5,15})', re.IGNORECASE)
+    imsi_re = re.compile(r'(?:IMSI)[:\s=]+(\d{14,15})', re.IGNORECASE)
+    opc_re = re.compile(r'(?:OPC|OrigPC|OriginatingPC)[:\s=]+(\d+)', re.IGNORECASE)
+    
+    gt_values = []
+    imsi_values = []
+    opc_values = []
+    
+    for idx, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        low = line.lower()
+        
+        # Tehlikeli opcode tespiti
+        for opcode, risk in dangerous_opcodes.items():
+            if opcode.lower() in low:
+                findings.append(("YUKSEK", idx, f"Tehlikeli MAP operasyonu: {opcode} ({risk})"))
+        
+        # GT toplama
+        gt_match = gt_re.findall(line)
+        for gt in gt_match:
+            gt_values.append((idx, gt.lstrip('+')))
+        
+        # IMSI toplama
+        imsi_match = imsi_re.findall(line)
+        for imsi in imsi_match:
+            imsi_values.append((idx, imsi))
+        
+        # OPC toplama
+        opc_match = opc_re.findall(line)
+        for opc in opc_match:
+            opc_values.append((idx, opc))
+        
+        # SCTP/M3UA anomalileri
+        if 'aspup' in low or 'asp_up' in low:
+            findings.append(("ORTA", idx, "ASP Up mesaji tespit edildi (M3UA baglanti denemesi)"))
+        
+        # Fragmentation bypass denemesi
+        if 'fragment' in low and ('bypass' in low or 'split' in low):
+            findings.append(("YUKSEK", idx, "Fragmentasyon bypass denemesi"))
+    
+    # GT-IMSI tutarsizligi kontrolu (farkli ulke kodlari)
+    if gt_values and imsi_values:
+        gt_countries = set()
+        imsi_countries = set()
+        for _, gt in gt_values:
+            if len(gt) >= 3:
+                gt_countries.add(gt[:3])
+        for _, imsi in imsi_values:
+            if len(imsi) >= 3:
+                imsi_countries.add(imsi[:3])
+        if gt_countries and imsi_countries and not gt_countries.intersection(imsi_countries):
+            findings.append(("YUKSEK", 0, f"GT ulke kodu ({gt_countries}) IMSI ulke kodu ({imsi_countries}) ile uyusmuyor - spoofing olabilir"))
+    
+    # Ayni OPC'den farkli operasyonlar (scanning belirtisi)
+    if len(opc_values) > 5:
+        findings.append(("ORTA", 0, f"Ayni OPC'den {len(opc_values)} istek - bulk scanning olabilir"))
+    
+    return findings
+
+
+def _detect_diameter_spoof(lines):
+    """Diameter mesajlarinda spoofing tespiti."""
+    findings = []
+    
+    dangerous_cmds = {
+        'AIR': 'Authentication-Information-Request (auth vektor cikarma)',
+        'ULR': 'Update-Location-Request (konum guncelleme)',
+        'CLR': 'Cancel-Location-Request (abone koparmak)',
+        'IDR': 'Insert-Subscriber-Data-Request (profil manipulasyonu)',
+        'PUR': 'Purge-UE-Request (abone temizleme)',
+        'NOR': 'Notify-Request (bildirim)',
+    }
+    
+    origin_hosts = set()
+    origin_realms = set()
+    
+    origin_host_re = re.compile(r'(?:Origin-Host|OriginHost)[:\s=]+(\S+)', re.IGNORECASE)
+    origin_realm_re = re.compile(r'(?:Origin-Realm|OriginRealm)[:\s=]+(\S+)', re.IGNORECASE)
+    
+    for idx, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        low = line.lower()
+        
+        # Tehlikeli Diameter komutlari
+        for cmd, risk in dangerous_cmds.items():
+            if cmd.lower() in low or risk.split('(')[0].strip().lower().replace('-', '') in low.replace('-', ''):
+                findings.append(("YUKSEK", idx, f"Diameter komutu: {cmd} ({risk})"))
+        
+        # Origin-Host / Origin-Realm toplama
+        oh_match = origin_host_re.findall(line)
+        for oh in oh_match:
+            origin_hosts.add(oh)
+        or_match = origin_realm_re.findall(line)
+        for orealm in or_match:
+            origin_realms.add(orealm)
+        
+        # CER/CEA - baglanti kurma
+        if 'capabilities-exchange' in low or 'cer' in low.split() or 'cea' in low.split():
+            findings.append(("ORTA", idx, "Diameter CER/CEA baglanti denemesi"))
+    
+    # Birden fazla Origin-Host (impersonation olabilir)
+    if len(origin_hosts) > 1:
+        findings.append(("YUKSEK", 0, f"Birden fazla Origin-Host: {origin_hosts} - kimlik taklit olabilir"))
+    
+    if len(origin_realms) > 1:
+        findings.append(("ORTA", 0, f"Birden fazla Origin-Realm: {origin_realms}"))
+    
+    return findings
+
+
+def _detect_network_anomaly(lines):
+    """Ag anomalileri tespit et (port scanning, brute force vb.)."""
+    findings = []
+    
+    ip_re = re.compile(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b')
+    port_re = re.compile(r':(\d{2,5})\b')
+    
+    ip_counts = {}
+    port_counts = {}
+    error_count = 0
+    timeout_count = 0
+    
+    for idx, raw in enumerate(lines, start=1):
+        line = raw.strip()
+        low = line.lower()
+        
+        # IP frekansi
+        ips = ip_re.findall(line)
+        for ip in ips:
+            ip_counts[ip] = ip_counts.get(ip, 0) + 1
+        
+        # Port frekansi
+        ports = port_re.findall(line)
+        for port in ports:
+            port_counts[port] = port_counts.get(port, 0) + 1
+        
+        # Hata sayaci
+        if 'error' in low or 'failed' in low or 'refused' in low:
+            error_count += 1
+        if 'timeout' in low or 'timed out' in low:
+            timeout_count += 1
+        
+        # Brute force belirtisi
+        if 'denied' in low and 'auth' in low:
+            findings.append(("ORTA", idx, "Kimlik dogrulama reddedildi"))
+    
+    # Cok sayida farkli port (scanning)
+    if len(port_counts) > 10:
+        findings.append(("YUKSEK", 0, f"{len(port_counts)} farkli port tespit edildi - port taramasi olabilir"))
+    
+    # Yuksek hata orani
+    if error_count > 20:
+        findings.append(("ORTA", 0, f"{error_count} hata satiri - brute force/fuzzing olabilir"))
+    
+    if timeout_count > 10:
+        findings.append(("DUSUK", 0, f"{timeout_count} timeout - ag sorunlari/slow DoS olabilir"))
+    
+    # En cok gorülen IP'ler
+    for ip, count in sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
+        if count > 50:
+            findings.append(("ORTA", 0, f"IP {ip} - {count} kez gorunuyor (yuksek aktivite)"))
+    
+    return findings
+
+
 def _summarize_findings(findings):
     summary = {"YUKSEK": 0, "ORTA": 0, "DUSUK": 0}
     for sev, _, _ in findings:
@@ -131,21 +320,29 @@ def _save_findings(path, title, findings):
 def run_guard_menu():
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
-        print("=" * 60)
-        print(" Spoofing Guard (Defensive)")
-        print(" SIP/SS7 ciktilarinda supheli spoofing izleri")
-        print("=" * 60)
-        print("1) SIP log dosyasi analizi (From/PAI/Via)")
-        print("2) Genel telecom cikti analizi (MSISDN tutarliligi)")
-        print("3) TR odakli spoofing risk analizi")
-        print("99) Geri")
+        print("=" * 70)
+        print(" Spoofing Guard (Defensive Security)")
+        print(" SIP/SS7/Diameter ciktilarinda supheli aktivite tespiti")
+        print("=" * 70)
+        print("\n[SIP Analizleri]")
+        print("  1) SIP log analizi (From/PAI/Via spoofing)")
+        print("\n[SS7/MAP Analizleri]")
+        print("  2) SS7/MAP mesaj analizi (tehlikeli opcode, GT/IMSI)")
+        print("  3) MSISDN/IMSI tutarlilik analizi")
+        print("\n[Diameter Analizleri]")
+        print("  4) Diameter mesaj analizi (AIR/ULR/CLR/IDR)")
+        print("\n[Genel Analizler]")
+        print("  5) Ag anomali tespiti (scanning, brute force)")
+        print("  6) TR odakli spoofing risk analizi")
+        print("  7) TOPLU ANALIZ (tum testler)")
+        print("\n  99) Geri")
 
         choice = _get_input("secim", "1").strip().lower()
 
         if choice == "99":
             return
 
-        if choice not in {"1", "2", "3"}:
+        if choice not in {"1", "2", "3", "4", "5", "6", "7"}:
             print("[-] Gecersiz secim")
             time.sleep(1)
             continue
@@ -161,11 +358,29 @@ def run_guard_menu():
             findings = _detect_sip_spoof(lines)
             title = "SIP Spoofing Analizi"
         elif choice == "2":
+            findings = _detect_ss7_spoof(lines)
+            title = "SS7/MAP Tehdit Analizi"
+        elif choice == "3":
             findings = _detect_msisdn_spoof(lines)
             title = "Telecom Tutarlilik Analizi"
-        else:
+        elif choice == "4":
+            findings = _detect_diameter_spoof(lines)
+            title = "Diameter Tehdit Analizi"
+        elif choice == "5":
+            findings = _detect_network_anomaly(lines)
+            title = "Ag Anomali Analizi"
+        elif choice == "6":
             findings = _detect_tr_focus(lines)
             title = "TR Odakli Spoofing Risk Analizi"
+        else:  # choice == "7"
+            findings = []
+            findings.extend(_detect_sip_spoof(lines))
+            findings.extend(_detect_ss7_spoof(lines))
+            findings.extend(_detect_msisdn_spoof(lines))
+            findings.extend(_detect_diameter_spoof(lines))
+            findings.extend(_detect_network_anomaly(lines))
+            findings.extend(_detect_tr_focus(lines))
+            title = "Toplu Guvenlik Analizi"
 
         print(f"\n[+] {title} | dosya: {path}")
         findings = _dedupe_findings(findings)

@@ -3,7 +3,7 @@
 '''
 Created on 12 Dec 2017
 
-@author: lia
+@author: myk
 '''
 import threading
 import errno, sys

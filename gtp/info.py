@@ -4,7 +4,7 @@ GTPv2 Information gathering attacks
 
 Created on 18 June 2018
 
-@author: loay
+@author: myk
 '''
 
 import os

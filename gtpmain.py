@@ -1,20 +1,27 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
-GTP Main
+GTP Main - GTP Protocol Attack Framework
 
 Created on 18 June 2018
 
 @author: loay
+@license: MIT license
 '''
 import os
 import time
 import sys
-import gtp.info
-import gtp.fraud
-import sigploit
 
+try:
+    import gtp.info
+    import gtp.fraud
+except ImportError as e:
+    print(f"[!] GTP modulleri yuklenemedi: {e}")
+    gtp = None
 
-from gtp.gtp_v2_core.utilities.configuration_parser import parseConfigs
+try:
+    from gtp.gtp_v2_core.utilities.configuration_parser import parseConfigs
+except ImportError:
+    parseConfigs = None
 
 config_file= ''
 remote_net =''
@@ -23,123 +30,143 @@ verbosity = 2
 output_file ='results.csv'
 
 def gtpinfo():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print(" \033[31mInformation Gathering\033[0m ".center(105, "#"))
-    print(" \033[34mSelect an Attack from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Attacks".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                             ------------")
-    print("0) GTP Nodes Discovery".rjust(25) + "\t\tNE Discovery, using: EchoRequest,CreateSession,DeleteSession or DeleteBearer Messages")
-    print("1) TEID Allocation Discovery".rjust(31) + "\t\tTEID Discovery, using: CreateSession,ModifyBearer or CreateBearer Messages")
-    print("2) TEID Predictability Index".rjust(31) + "\t\tAnalyze TEID sequences for predictability")
+    """GTP Bilgi Toplama alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(" \033[31mBilgi Toplama (Information Gathering)\033[0m ".center(105, "#"))
+        print(" \033[34mBir saldiri secin\033[0m ".center(105, "#"))
+        print()
+        print("   Saldiri".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                             ------------")
+        print("0) GTP Nodes Discovery".rjust(25) + "\t\tEchoRequest/CreateSession ile NE kesfi")
+        print("1) TEID Allocation Discovery".rjust(31) + "\t\tCreateSession/ModifyBearer ile TEID kesfi")
+        print("2) TEID Predictability Index".rjust(31) + "\t\tTEID dizileri tahmin edilebilirlik analizi")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input("\033[37m(\033[0m\033[2;31minfo\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input("\033[37m(\033[0m\033[2;31minfo\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        gtp.info.nediscover()
-    elif choice == "1":
-        gtp.info.teidiscover()
-    elif choice == "2":
-        gtp.info.teidpredict()
-    elif choice == "back":
-        gtpattacksv2()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0-2)')
-        time.sleep(1.5)
-        gtpinfo()
+        if choice == "back":
+            return
+        elif choice == "0":
+            try:
+                gtp.info.nediscover()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        elif choice == "1":
+            try:
+                gtp.info.teidiscover()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        elif choice == "2":
+            try:
+                gtp.info.teidpredict()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-2)')
+            time.sleep(1.5)
+
 
 def gtpfraud():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print(" \033[31mFraud\033[0m ".center(105, "#"))
-    print(" \033[34mSelect an Attack from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Attacks".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                             ------------")
-    print("0) Tunnel Hijack".rjust(19) + "\t\tTEID Hijack, using: ModifyBearerRequest Message, TunnelHijack.cnf")
+    """GTP Dolandırıcılık alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(" \033[31mDolandiricilik (Fraud)\033[0m ".center(105, "#"))
+        print(" \033[34mBir saldiri secin\033[0m ".center(105, "#"))
+        print()
+        print("   Saldiri".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                             ------------")
+        print("0) Tunnel Hijack".rjust(19) + "\t\tTEID Hijack - ModifyBearerRequest ile tunel ele gecirme")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input("\033[37m(\033[0m\033[2;31mfraud\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input("\033[37m(\033[0m\033[2;31mfraud\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        gtp.fraud.thijack()
-    elif choice == "back":
-        gtpattacksv2()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0)')
-        time.sleep(1.5)
-        gtpfraud()
-
+        if choice == "back":
+            return
+        elif choice == "0":
+            try:
+                gtp.fraud.thijack()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0)')
+            time.sleep(1.5)
 
 
 def gtpdos():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print(" \033[31mDoS (Denial of Service)\033[0m ".center(105, "#"))
-    print(" \033[34mSelect an Attack from the below\033[0m ".center(105, "#"))
-    print()
-    print("   Attacks".rjust(10) + "\t\t\t\tDescription")
-    print("   --------                             ------------")
-    print("0) Massive DoS".rjust(17) + "\t\t\tFlood GTP-C with DeleteSession/CreateSession messages")
-    print("1) User DoS".rjust(14) + "\t\t\t\tTarget specific user's GTP tunnel")
+    """GTP DoS alt menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(" \033[31mDoS (Servis Engelleme)\033[0m ".center(105, "#"))
+        print(" \033[34mBir saldiri secin\033[0m ".center(105, "#"))
+        print()
+        print("   Saldiri".rjust(10) + "\t\t\t\tAciklama")
+        print("   --------                             ------------")
+        print("0) Massive DoS".rjust(17) + "\t\t\tDeleteSession/CreateSession ile toplu flood")
+        print("1) User DoS".rjust(14) + "\t\t\t\tBelirli kullanicinin GTP tunelini hedefle")
 
-    print()
-    print("or type back to go back to Attacks Menu".rjust(42))
+        print()
+        print("Geri donmek icin back yazin".rjust(30))
 
-    choice = input("\033[37m(\033[0m\033[2;31mdos\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input("\033[37m(\033[0m\033[2;31mdos\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        try:
-            from gtp.attacks.dos.massive_dos import main as massive_main
-            massive_main()
-        except Exception as e:
-            print(f"\033[31m[-] Error: {e}\033[0m")
-            input("\nPress Enter to continue...")
-    elif choice == "1":
-        try:
-            from gtp.attacks.dos.user_dos import main as user_main
-            user_main()
-        except Exception as e:
-            print(f"\033[31m[-] Error: {e}\033[0m")
-            input("\nPress Enter to continue...")
-    elif choice == "back":
-        gtpattacksv2()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0-1)')
-        time.sleep(1.5)
-        gtpdos()
+        if choice == "back":
+            return
+        elif choice == "0":
+            try:
+                from gtp.attacks.dos.massive_dos import main as massive_main
+                massive_main()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        elif choice == "1":
+            try:
+                from gtp.attacks.dos.user_dos import main as user_main
+                user_main()
+            except Exception as e:
+                print(f"\033[31m[-] Hata: {e}\033[0m")
+                time.sleep(2)
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-1)')
+            time.sleep(1.5)
 
 
 def gtpattacksv2():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """GTP v2 saldırı kategorisi menüsü."""
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-    print(" \033[34mChoose From the Below Attack Categories\033[0m ".center(105, "#"))
-    print()
-    print("0) Information Gathering".rjust(27))
-    print("1) Fraud".rjust(11))
-    print("2) DoS (Denial of Service)".rjust(29))
-    print()
-    print("or type back to return to the main menu".rjust(42))
-    print()
+        print(" \033[34mGTP Saldiri Kategorisi Secin\033[0m ".center(105, "#"))
+        print()
+        print("0) Bilgi Toplama (Information Gathering)".rjust(43))
+        print("1) Dolandiricilik (Fraud)".rjust(27))
+        print("2) DoS (Servis Engelleme)".rjust(28))
+        print()
+        print("Ana menuye donmek icin back yazin".rjust(36))
+        print()
 
-    choice = input(
-        "\033[37m(\033[0m\033[2;31mattacks\033[0m\033[37m)>\033[0m ").strip().lower()
+        choice = input(
+            "\033[37m(\033[0m\033[2;31mattacks\033[0m\033[37m)>\033[0m ").strip().lower()
 
-    if choice == "0":
-        gtpinfo()
-    elif choice == "1":
-        gtpfraud()
-    elif choice == "2":
-        gtpdos()
-    elif choice == 'back':
-        sigploit.mainMenu()
-    else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (0-2)')
-        time.sleep(1.5)
-        gtpattacksv2()
+        if choice == "back":
+            return  # mainMenu döngüsüne geri dön
+        elif choice == "0":
+            gtpinfo()
+        elif choice == "1":
+            gtpfraud()
+        elif choice == "2":
+            gtpdos()
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-2)')
+            time.sleep(1.5)
 
 def showOptions(config_file='', remote_net='', listening=True, verbosity=2, output_file='results.csv'):
 
@@ -165,25 +192,27 @@ def helpmenu():
   
 
 def prep():
-    print()
-    print("   Module".rjust(10) + "\t\tDescription")
-    print("   --------             ------------")
-    print("0) GTPv1".rjust(8) + "\t\t3G Data attacks")
-    print("1) GTPv2".rjust(8) + "\t\t4G Data attacks")
-    print()
-    print("or type back to go back to Main Menu".rjust(39))
+    """GTP protokol sürümü seçim menüsü."""
+    while True:
+        print()
+        print("   Modul".rjust(10) + "\t\tAciklama")
+        print("   --------             ------------")
+        print("0) GTPv1".rjust(8) + "\t\t3G Veri saldirilari")
+        print("1) GTPv2".rjust(8) + "\t\t4G Veri saldirilari")
+        print()
+        print("Ana menuye donmek icin back yazin".rjust(36))
 
-    choice = input("\033[34mgtp\033[0m\033[37m>\033[0m ").strip().lower()
+        choice = input("\033[34mgtp\033[0m\033[37m>\033[0m ").strip().lower()
 
-    if choice == "0":
-        print("\n\033[34m[*]\033[0mGTPv1 will be updated in version 2.1 release..")
-        print("\033[34m[*]\033[0mGoing back to GTP Menu")
-        time.sleep(2)
-        os.system('cls' if os.name == 'nt' else 'clear')
-        prep()
-
-    elif choice == "1":
-        gtpattacksv2()
-
-    elif choice == "back":
-        sigploit.mainMenu()
+        if choice == "back":
+            return  # mainMenu döngüsüne geri dön
+        elif choice == "0":
+            print("\n\033[34m[*]\033[0m GTPv1 surum 2.1'de guncellenecektir...")
+            print("\033[34m[*]\033[0m GTP menusune donuluyor")
+            time.sleep(2)
+            os.system('cls' if os.name == 'nt' else 'clear')
+        elif choice == "1":
+            gtpattacksv2()
+        else:
+            print('\n\033[31m[-]Hata:\033[0m Gecerli bir secim yapin (0-1)')
+            time.sleep(1.5)

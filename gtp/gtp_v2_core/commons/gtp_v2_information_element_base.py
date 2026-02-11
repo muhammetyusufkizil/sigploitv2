@@ -146,8 +146,8 @@ class Imsi (InformationElementBase):
         hex_imsi += ("f" + self.__val[14])
         
         if gtp_v2_commons.DEBUG :
-            print("imsi :"), self.__val
-            print("hex imsi:"), hex_imsi
+            print("imsi :", self.__val)
+            print("hex imsi:", hex_imsi)
         return bytearray.fromhex(hex_imsi)
     
 class Msisdn(InformationElementBase):
@@ -258,8 +258,8 @@ class MEIdentity(InformationElementBase) :
             hex_imei+=c1
             i += 2
         if gtp_v2_commons.DEBUG:
-            print("imei:"), self.__val 
-            print("hex imei:"), hex_imei
+            print("imei:", self.__val)
+            print("hex imei:", hex_imei)
         return bytearray.fromhex(hex_imei)   
 
 class ServingNetwork(InformationElementBase):

@@ -1,47 +1,55 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 """
-Created on 1 Feb 2018
+SS7 Interception Module
+Dinleme saldırıları: UpdateLocation (Gizli SMS dinleme)
 
 @author: loay
+@license: MIT license
 """
 
-import os
 import sys
 import time
-from subprocess import *
 
-import sigploit
-import ss7main
 
-ul_path = os.path.join(os.getcwd(), 'ss7/attacks/interception/ul')
+def _post_attack_nav(menu_name="Dinleme"):
+    """Saldırı sonrası navigasyon menüsü.
+    
+    Returns:
+        str: 'sub' (alt menüye dön), 'attacks' (saldırı menüsüne dön),
+             'main' (ana menüye dön), 'exit' (çık)
+    """
+    print()
+    choice = input(f'\n{menu_name} menusune donmek ister misiniz? (e/h): ').strip().lower()
+    if choice in ('e', 'evet', 'y', 'yes'):
+        return 'sub'
+    elif choice in ('h', 'hayir', 'n', 'no'):
+        attack_menu = input('Baska bir saldiri kategorisi secmek ister misiniz? (e/h): ').strip().lower()
+        if attack_menu in ('e', 'evet', 'y', 'yes'):
+            return 'attacks'
+        elif attack_menu in ('h', 'hayir', 'n', 'no'):
+            main_menu = input('Ana menuye donmek ister misiniz? (e/cikis): ').strip().lower()
+            if main_menu in ('e', 'evet', 'y', 'yes'):
+                return 'main'
+            elif main_menu in ('cikis', 'exit'):
+                print('TCAP End...')
+                sys.exit(0)
+    return 'sub'  # Varsayılan: alt menüye dön
 
 
 def ul():
+    """UpdateLocation - Gizli SMS dinleme."""
     try:
         from ss7.attacks.interception import ul_scapy
         ul_scapy.ul_main()
-
-        interception_menu = input('\nWould you like to go back to Interception Menu? (y/n): ')
-        if interception_menu == 'y' or interception_menu == 'yes':
-            ss7main.ss7interception()
-        elif interception_menu == 'n' or interception_menu == 'no':
-            attack_menu = input('Would you like to choose another attacks category? (y/n): ')
-            if attack_menu == 'y' or attack_menu == 'yes':
-                ss7main.attacksMenu()
-            elif attack_menu == 'n' or attack_menu == 'no':
-                main_menu = input('Would you like to go back to the main menu? (y/exit): ')
-                if main_menu == 'y' or main_menu == 'yes':
-                    sigploit.mainMenu()
-                elif main_menu == 'exit':
-                    print('TCAP End...')
-                    sys.exit(0)
-
+        return _post_attack_nav("Dinleme")
     except ImportError as e:
-        print("\033[31m[-]Error:\033[0m Scapy script not found or dependencies missing: %s" % str(e))
+        print(f"\033[31m[-] UpdateLocation modulu yuklenemedi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7interception()
+        return 'sub'
+    except KeyboardInterrupt:
+        print("\n[!] Kullanici tarafindan durduruldu.")
+        return 'sub'
     except Exception as e:
-        print("\033[31m[-]Error:\033[0m An error occurred: %s" % str(e))
+        print(f"\033[31m[-] UpdateLocation hatasi: {e}\033[0m")
         time.sleep(2)
-        ss7main.ss7interception()
+        return 'sub'

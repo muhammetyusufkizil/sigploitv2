@@ -93,13 +93,14 @@ class TCAPReturnResult:
         
         return encode_tlv(bytes([COMP_RETURN_RESULT]), content)
 
-def encode_tcap_begin(otid, components_data):
+def encode_tcap_begin(otid, components_data, dialogue_portion=None):
     """
     Encode a TCAP Begin message.
     
     Args:
         otid: Originating Transaction ID (bytes or int)
         components_data: Encoded component portion
+        dialogue_portion: Optional encoded dialogue portion (Application Context, etc.)
     
     Returns:
         bytes: Complete TCAP Begin message
@@ -110,6 +111,10 @@ def encode_tcap_begin(otid, components_data):
     if isinstance(otid, int):
         otid = otid.to_bytes(4, 'big')
     content += encode_tlv(bytes([TAG_OTID]), otid)
+    
+    # Dialogue Portion (optional but recommended for HLR compatibility)
+    if dialogue_portion:
+        content += encode_tlv(bytes([TAG_DIALOGUE_PORTION]), dialogue_portion)
     
     # Component Portion
     content += encode_tlv(bytes([TAG_COMPONENT_PORTION]), components_data)
@@ -147,6 +152,45 @@ def encode_tcap_unidirectional(components_data):
     """Encode a TCAP Unidirectional message (no transaction IDs)."""
     content = encode_tlv(bytes([TAG_COMPONENT_PORTION]), components_data)
     return encode_tlv(bytes([TCAP_UNIDIRECTIONAL]), content)
+
+def build_map_dialogue_portion(application_context_name_oid):
+    """
+    Build MAP Dialogue Portion with Application Context Name.
+    This is often required by HLRs to accept MAP operations.
+    
+    Args:
+        application_context_name_oid: OID as list of integers
+            e.g. [0, 4, 0, 0, 1, 0, 20, 3] for shortMsgGateway-v3
+    
+    Returns:
+        bytes: Encoded dialogue portion content
+    
+    Common MAP Application Context OIDs:
+    - [0, 4, 0, 0, 1, 0, 25, 3]: networkLocUp-v3 (Update Location)
+    - [0, 4, 0, 0, 1, 0, 20, 3]: shortMsgGateway-v3 (SMS)
+    - [0, 4, 0, 0, 1, 0, 21, 3]: shortMsgMO-Relay-v3
+    - [0, 4, 0, 0, 1, 0, 71, 1]: anyTimeEnquiry-v3 (ATI, PSI)
+    """
+    from .asn1_utils import encode_tlv, encode_sequence, TAG_OID
+    
+    # Encode OID
+    oid_bytes = bytes([len(application_context_name_oid)] + application_context_name_oid)
+    ac_name = encode_tlv(TAG_OID, oid_bytes)
+    
+    # External tag [UNIVERSAL 8] - indicates dialogue PDU
+    # Dialogue Request
+    dialogue_request = encode_sequence(
+        encode_context_tag(0, ac_name, constructed=False)  # application-context-name
+    )
+    
+    # AARQ-apdu [APPLICATION 0]
+    aarq = encode_tlv(bytes([0x60]), dialogue_request)
+    
+    # External wrapper
+    external_content = encode_tlv(bytes([0x06]), b'\x00\x11\x86\x05\x01\x01\x01')  # direct-reference OID
+    external_content += encode_context_tag(0, aarq, constructed=True)  # encoding: single-ASN1-type
+    
+    return encode_tlv(bytes([0x28]), external_content)  # EXTERNAL tag
 
 def decode_tcap(data):
     """

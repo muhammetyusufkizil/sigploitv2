@@ -213,15 +213,28 @@ class TCPTransport:
         self.sock.send(build_m3ua_aspup())
         try:
             resp = self.sock.recv(4096)
-            if resp:
+            if resp and len(resp) >= 8:
+                # Validate M3UA header: Version=1, Class=ASPSM(3), Type=ASP_UP_ACK(4)
+                if resp[0] != 0x01:
+                    print(f"    \033[33m[!] Unexpected M3UA version: {resp[0]}\033[0m")
                 info = parse_m3ua_response(resp)
                 if info:
                     print(f"    \033[32m[+] Response: {info['class_name']}/{info['type_name']}\033[0m")
                     if info['class'] == 3 and info['type'] == 4:
                         self.asp_up = True
                         print(f"    \033[32m[+] ASP Up Ack received!\033[0m")
+                    elif info['class'] == 0 and info['type'] == 0:
+                        print(f"    \033[31m[-] M3UA Error response received\033[0m")
+                    elif info['class'] == 3 and info['type'] == 2:
+                        print(f"    \033[33m[!] ASP Down received (peer rejected)\033[0m")
+                else:
+                    print(f"    \033[33m[!] Could not parse M3UA response ({len(resp)} bytes)\033[0m")
+            elif resp:
+                print(f"    \033[33m[!] Response too short: {len(resp)} bytes\033[0m")
         except socket.timeout:
             print(f"    \033[33m[!] No ASP Up response (timeout)\033[0m")
+        except ConnectionResetError:
+            print(f"    \033[31m[-] Connection reset by peer (firewall?)\033[0m")
 
         # Step 3: M3UA ASP Active
         print(f"[3] M3UA ASP Active...")
